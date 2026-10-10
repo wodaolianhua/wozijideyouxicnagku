@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>战争策略游戏原型</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; }
+      body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; color: #c9d1d9; }
+      #app { width: 100%; height: 100%; position: relative; }
+      canvas { display: block; }
+
+      #hud {
+        position: absolute; top: 0; left: 0; right: 0;
+        display: flex; justify-content: space-between;
+        padding: 12px 16px; pointer-events: none;
+      }
+      .panel {
+        background: rgba(13, 17, 23, 0.88);
+        border: 1px solid #30363d; border-radius: 8px;
+        padding: 10px 14px; font-size: 13px; line-height: 1.7;
+      }
+      .panel h3 { font-size: 13px; font-weight: 500; color: #58a6ff; margin-bottom: 6px; }
+      .row { display: flex; gap: 16px; align-items: baseline; }
+      .val { color: #e6edf3; font-weight: 500; }
+      .warn { color: #f85149; }
+      .ok { color: #3fb950; }
+
+      #view-switch {
+        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+        display: flex; gap: 8px;
+      }
+      button {
+        background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
+        padding: 9px 18px; border-radius: 6px; font-size: 13px; cursor: pointer;
+        font-family: inherit;
+      }
+      button:hover { background: #30363d; }
+      button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+
+      #log {
+        position: absolute; bottom: 70px; left: 16px;
+        max-width: 320px; max-height: 180px; overflow-y: auto;
+        font-size: 12px; line-height: 1.6;
+      }
+      #log div { padding: 2px 0; border-bottom: 1px solid rgba(48,54,61,.5); }
+
+      #help {
+        position: absolute; top: 130px; left: 16px;
+        font-size: 12px; line-height: 1.8; color: #8b949e;
+      }
+      #help h3 { font-size: 12px; font-weight: 500; color: #58a6ff; margin-bottom: 4px; }
+
+      #econ {
+        position: absolute; top: 130px; right: 16px;
+        width: 260px; font-size: 12px;
+        max-height: calc(100vh - 220px); overflow-y: auto;
+      }
+      #econ h3 { font-size: 13px; font-weight: 500; color: #58a6ff; }
+      #eco-talents { font-size: 11px; margin-top: 4px; }
+      .talent {
+        border: 1px solid #30363d; border-radius: 5px;
+        padding: 5px 7px; margin-bottom: 5px; cursor: pointer;
+      }
+      .talent:hover { border-color: #58a6ff; }
+      .talent.posted { border-color: #3fb950; }
+      .talent-name { font-weight: 600; color: #e6edf3; }
+      .talent-meta { color: #8b949e; font-size: 10px; margin-top: 2px; }
+      .talent-stats { color: #c9d1d9; font-size: 10px; margin-top: 2px; }
+      .post-row { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+      .post-row button { padding: 2px 6px; font-size: 10px; }
+      .post-row button.on { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+      .fit { font-size: 10px; }
+
+      #fps {
+        position: absolute; top: 12px; right: 16px;
+        font-size: 12px; color: #8b949e; font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="hud">
+      <div class="panel">
+        <h3>战场</h3>
+        <div class="row">
+          <span>时间</span><span class="val" id="hud-turn">第 0 回合</span>
+        </div>
+        <div class="row">
+          <span>视角</span><span class="val" id="hud-view">战略</span>
+        </div>
+        <div class="row">
+          <span>我方兵力</span><span class="val" id="hud-troops">0</span>
+        </div>
+        <div class="row">
+          <span>敌方兵力</span><span class="val" id="hud-enemy">0</span>
+        </div>
+      </div>
+      <div class="panel" id="hud-res">
+        <h3>实时战场（士兵级）</h3>
+        <div class="row"><span>我方现存</span><span class="val" id="hud-live-a">0</span></div>
+        <div class="row"><span>敌方现存</span><span class="val" id="hud-live-d">0</span></div>
+        <div class="row"><span>交战中单位</span><span class="val" id="hud-engaged">0</span></div>
+        <div class="row"><span>已溃退单位</span><span class="val" id="hud-routed">0</span></div>
+        <div class="row"><span>已选中</span><span class="val" id="hud-sel">0</span></div>
+      </div>
+      <div class="panel" id="hud-cas">
+        <h3>编制层（按回合结算）</h3>
+        <div class="row"><span>回合</span><span class="val" id="hud-turn2">0</span></div>
+        <div class="row"><span>状态</span><span class="val" id="hud-state">未接触</span></div>
+        <div class="row"><span>我方伤亡</span><span class="val" id="hud-cas-a">0</span></div>
+        <div class="row"><span>敌方伤亡</span><span class="val" id="hud-cas-d">0</span></div>
+      </div>
+    </div>
+
+      <div id="fps">--</div>
+      <div id="log" class="panel"></div>
+
+    <!-- 经营面板 -->
+    <div id="econ" class="panel">
+      <div class="row" style="justify-content: space-between">
+        <h3>经营 · 第 <span id="econ-day">0</span> 日</h3>
+        <button id="btn-eco-toggle" style="padding: 3px 10px; font-size: 11px;">收起</button>
+      </div>
+      <div id="eco-body">
+        <div class="row"><span>粮</span><span class="val" id="eco-food">0</span>
+          <span>金</span><span class="val" id="eco-gold">0</span></div>
+        <div class="row"><span>民心</span><span class="val" id="eco-morale">0</span>
+          <span>人口</span><span class="val" id="eco-pop">0</span></div>
+        <div class="row"><span>兵源</span><span class="val" id="eco-mp">0</span>
+          <span>据点</span><span class="val" id="eco-lv">1 级</span></div>
+        <div class="row" style="margin-top:6px">
+          <span>日粮产</span><span class="val" id="eco-foodrate">0</span>
+          <span>日金入</span><span class="val" id="eco-goldrate">0</span>
+        </div>
+        <div class="row" style="margin-top:8px; gap:6px">
+          <button id="btn-day" style="flex:1; font-size: 12px;">推进一日</button>
+          <button id="btn-upgrade" style="flex:1; font-size: 12px;">扩建据点</button>
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:#8b949e">进行中任务</div>
+        <div id="eco-tasks" style="font-size:12px; margin-top:4px"></div>
+        <div style="margin-top:10px; font-size:12px; color:#8b949e">
+          人才池（<span id="eco-talentcount">0</span> 人）
+        </div>
+        <div id="eco-talents"></div>
+      </div>
+    </div>
+
+    <div id="help" class="panel">
+      <h3>操作</h3>
+      <div>左键拖动 = 框选我方单位（Shift 加选）</div>
+      <div>右键点击 = 下令移动</div>
+      <div>中键点击 = 下令攻击（该处无敌则移动）</div>
+      <div>空格 = 编制层推进一回合</div>
+      <div>X = 停止并脱离战斗</div>
+      <div id="help-nav">WASD = 平移视角　滚轮 = 缩放<br />V = 切换视角　R = 重置战场</div>
+    </div>
+
+    <div id="view-switch">
+      <button id="btn-strategic" class="active">战略视角</button>
+      <button id="btn-tactical">个人视角</button>
+      <button id="btn-step">推进一回合</button>
+      <button id="btn-reset">重置战场</button>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

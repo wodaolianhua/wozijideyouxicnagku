@@ -1,0 +1,3062 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>现代战争 · 大战场AI模拟</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%232563eb'/%3E%3Cpath d='M8 22 L16 10 L24 22 Z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0a0e14;
+    font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; color:#e6e6e6; }
+  canvas { display:block; }
+
+  /* ---------- 开始界面 ---------- */
+  #menu {
+    position:fixed; inset:0; z-index:100;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 40%, #16233a 0%, #070a10 70%);
+  }
+  #menu h1 {
+    font-size:44px; letter-spacing:8px; font-weight:900;
+    background:linear-gradient(180deg,#7dd3fc,#2563eb);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    text-shadow:0 0 40px rgba(59,130,246,.4);
+  }
+  #menu .sub { color:#7c8aa0; margin-top:8px; letter-spacing:3px; font-size:13px; }
+  .menu-block { margin-top:34px; text-align:center; }
+  .menu-label { color:#9fb0c7; font-size:13px; letter-spacing:2px; margin-bottom:12px; }
+  .opt-row { display:flex; gap:12px; justify-content:center; }
+  .opt {
+    padding:12px 22px; border:2px solid #2b3a52; border-radius:12px;
+    background:rgba(20,30,46,.7); color:#c7d2e0; cursor:pointer;
+    font-size:15px; font-weight:600; transition:.18s; min-width:76px; text-align:center;
+  }
+  .opt:hover { border-color:#3b82f6; color:#fff; transform:translateY(-2px); }
+  .opt.active { border-color:#3b82f6; background:rgba(59,130,246,.22); color:#fff;
+    box-shadow:0 0 22px rgba(59,130,246,.45); }
+  #startBtn {
+    margin-top:46px; padding:16px 70px; border:none; border-radius:40px;
+    font-size:19px; font-weight:800; letter-spacing:6px; cursor:pointer; color:#fff;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    box-shadow:0 8px 30px rgba(37,99,235,.5); transition:.2s;
+  }
+  #startBtn:hover { transform:scale(1.05); box-shadow:0 12px 40px rgba(37,99,235,.7); }
+
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; display:none; }
+  #topbar {
+    position:absolute; top:0; left:0; right:0; height:52px;
+    background:linear-gradient(180deg,rgba(8,12,20,.92),rgba(8,12,20,.55));
+    border-bottom:1px solid rgba(59,130,246,.25);
+    display:flex; align-items:center; padding:0 18px; gap:20px;
+    pointer-events:auto;
+  }
+  #topbar .brand { color:#7dd3fc; font-weight:800; letter-spacing:3px; font-size:15px; }
+  #factionStats { display:flex; gap:14px; margin-left:auto; }
+  .fstat {
+    display:flex; align-items:center; gap:7px; padding:5px 12px; border-radius:20px;
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:13px;
+    transition:.3s;
+  }
+  .fstat.dead { opacity:.3; filter:grayscale(1); }
+  .fdot { width:11px; height:11px; border-radius:50%; box-shadow:0 0 8px currentColor; }
+  .fcount { font-weight:800; font-variant-numeric:tabular-nums; }
+  #btns { display:flex; gap:8px; margin-left:14px; }
+  .hbtn {
+    pointer-events:auto; padding:7px 14px; border-radius:9px; cursor:pointer;
+    background:rgba(30,41,59,.85); border:1px solid #334155; color:#cbd5e1;
+    font-size:13px; font-weight:600; transition:.15s; white-space:nowrap;
+  }
+  .hbtn:hover { background:#334155; color:#fff; }
+  .hbtn.on { background:#2563eb; border-color:#3b82f6; color:#fff; }
+
+  /* 雷达 */
+  #radarBox {
+    position:absolute; left:16px; bottom:16px; width:170px; height:170px;
+    background:rgba(6,12,20,.72); border:1px solid rgba(59,130,246,.35);
+    border-radius:10px; padding:6px;
+  }
+  #radarBox .rtitle { font-size:10px; color:#7dd3fc; letter-spacing:2px; text-align:center; margin-bottom:3px; }
+  #radar { width:100%; height:150px; display:block; }
+
+  /* 情报中心 */
+  #intel {
+    position:absolute; right:16px; top:64px; width:224px;
+    background:rgba(6,12,20,.74); border:1px solid rgba(59,130,246,.35);
+    border-radius:10px; padding:10px 12px; font-size:12px;
+  }
+  #intel h3 { font-size:11px; color:#7dd3fc; letter-spacing:2px; margin-bottom:8px; font-weight:700; }
+  .irow { display:flex; align-items:center; gap:6px; margin:7px 0; }
+  .irow .nm { width:32px; font-weight:600; }
+  .ibar { flex:1; height:6px; background:rgba(255,255,255,.09); border-radius:3px; overflow:hidden; }
+  .ibar i { display:block; height:100%; width:0%; transition:width .4s; border-radius:3px; }
+  .irow .cnt { width:22px; text-align:right; font-variant-numeric:tabular-nums; color:#c7d2e0; }
+  .stance { font-size:10px; padding:1px 6px; border-radius:6px; background:rgba(255,255,255,.12); color:#e6e6e6; }
+  #log { margin-top:8px; border-top:1px solid rgba(255,255,255,.1); padding-top:6px; }
+  #log div { font-size:10.5px; color:#9fb0c7; margin:2px 0; line-height:1.4; }
+
+  /* 单位档案（看算法） */
+  #inspector {
+    position:absolute; right:16px; bottom:16px; width:224px; display:none;
+    background:rgba(6,12,20,.8); border:1px solid rgba(255,212,121,.45);
+    border-radius:10px; padding:10px 12px; font-size:12px;
+  }
+  #inspector h3 { font-size:11px; color:#ffd479; letter-spacing:2px; margin-bottom:7px; font-weight:700; }
+  #inspector .kv { display:flex; justify-content:space-between; margin:3px 0; color:#c7d2e0; }
+  #inspector .kv b { color:#fff; font-weight:600; }
+
+  /* 浮动伤害数字 */
+  .dmgNum {
+    position:fixed; font-size:13px; font-weight:900; pointer-events:none; z-index:15;
+    text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 6px currentColor;
+    animation:dmgFly 1.1s ease-out forwards;
+    transform:translateX(-50%);
+    white-space:nowrap;
+  }
+  @keyframes dmgFly {
+    0%   { opacity:1; transform:translateX(-50%) translateY(0px) scale(1); }
+    20%  { opacity:1; transform:translateX(-50%) translateY(-8px) scale(1.1); }
+    100% { opacity:0; transform:translateX(-50%) translateY(-44px) scale(0.7); }
+  }
+
+  /* 击杀播报 */
+  #killfeed {
+    position:absolute; left:50%; top:120px; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    pointer-events:none; z-index:12;
+  }
+  .kf {
+    background:rgba(6,12,20,.78); border:1px solid rgba(255,255,255,.12);
+    border-radius:8px; padding:4px 14px; font-size:12px; letter-spacing:0.5px;
+    animation:kfFade 3.2s ease-out forwards;
+    white-space:nowrap;
+  }
+  @keyframes kfFade {
+    0%   { opacity:0; transform:translateY(-8px) scale(0.92); }
+    8%   { opacity:1; transform:translateY(0) scale(1); }
+    70%  { opacity:1; }
+    100% { opacity:0; transform:translateY(-5px); }
+  }
+  .kf .at { color:#9fb0c7; }
+  .kf .kf { color:#e2e8f0; }
+
+  /* 战斗激烈指示器 */
+  #intensity {
+    position:absolute; top:58px; left:50%; transform:translateX(-50%);
+    background:rgba(6,12,20,.7); border:1px solid rgba(59,130,246,.2);
+    border-radius:12px; padding:2px 12px; font-size:11px; color:#9fb0c7;
+    letter-spacing:1px; pointer-events:none; transition:opacity .5s;
+  }
+  #intensity.hot { color:#ef4444; border-color:rgba(239,68,68,.4); }
+  #intensity.warm { color:#fbbf24; border-color:rgba(251,191,36,.3); }
+
+  /* 瞄准线 */
+  #aimLine { position:fixed; inset:0; pointer-events:none; z-index:14; }
+
+  /* 瞄准点 */
+  .aimDot {
+    position:fixed; width:10px; height:10px; border-radius:50%;
+    border:2px solid; pointer-events:none; z-index:15;
+    transform:translate(-50%,-50%);
+    animation:aimPulse .9s ease-out forwards;
+  }
+  @keyframes aimPulse {
+    0%   { opacity:1; transform:translate(-50%,-50%) scale(1); }
+    100% { opacity:0; transform:translate(-50%,-50%) scale(3); }
+  }
+
+  #tips {
+    position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+    background:rgba(8,12,20,.7); border:1px solid rgba(255,255,255,.08);
+    padding:8px 20px; border-radius:20px; font-size:12px; color:#9fb0c7; letter-spacing:1px;
+  }
+  #tips b { color:#7dd3fc; }
+
+  #phase {
+    position:absolute; top:60px; left:50%; transform:translateX(-50%);
+    font-size:13px; letter-spacing:3px; color:#ffd479; font-weight:700;
+    text-shadow:0 0 16px rgba(255,180,0,.45);
+  }
+  #banner {
+    position:absolute; top:92px; left:50%; transform:translateX(-50%);
+    font-size:15px; letter-spacing:4px; color:#ffd479; font-weight:700;
+    text-shadow:0 0 20px rgba(255,180,0,.5); opacity:0; transition:opacity .4s;
+  }
+
+  /* 结算 */
+  #result {
+    position:fixed; inset:0; z-index:60; display:none;
+    align-items:center; justify-content:center; flex-direction:column; gap:16px;
+    background:rgba(4,8,14,.82); backdrop-filter:blur(4px);
+  }
+  #result.show { display:flex; }
+  #result .rt { font-size:52px; font-weight:900; letter-spacing:6px; }
+  #result .rs { color:#9fb0c7; letter-spacing:2px; }
+  #result button {
+    margin-top:14px; padding:14px 54px; border:none; border-radius:36px; cursor:pointer;
+    font-size:16px; font-weight:800; letter-spacing:4px; color:#fff;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8); box-shadow:0 8px 26px rgba(37,99,235,.5);
+  }
+
+  #loader { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background:#070a10; color:#7dd3fc; letter-spacing:4px; font-size:15px; text-align:center; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="loader">正在加载战场引擎…</div>
+
+<!-- 开始界面 -->
+<div id="menu">
+  <h1>大 战 场</h1>
+  <div class="sub">MODERN WARFARE · AI BATTLE SIMULATOR</div>
+
+  <div class="menu-block">
+    <div class="menu-label">参战阵营数量</div>
+    <div class="opt-row" id="factionOpts">
+      <div class="opt" data-n="2">2 方</div>
+      <div class="opt active" data-n="3">3 方</div>
+      <div class="opt" data-n="4">4 方</div>
+      <div class="opt" data-n="5">5 方</div>
+    </div>
+  </div>
+
+  <div class="menu-block">
+    <div class="menu-label">军队规模</div>
+    <div class="opt-row" id="scaleOpts">
+      <div class="opt" data-s="small">小队</div>
+      <div class="opt active" data-s="medium">旅级</div>
+      <div class="opt" data-s="large">军团</div>
+    </div>
+  </div>
+
+  <button id="startBtn">开 始 观 战</button>
+  <div class="sub" style="margin-top:22px">先布阵 · 再开战 · 有视野 · 会偷袭 · 上帝视角+情报</div>
+  <div class="sub" style="margin-top:6px; color:#4a6080; font-size:11px; letter-spacing:1px">大地图·高山海岛·碉堡战壕 · 指挥部战前策划 · 视野遮挡 · 步兵班</div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="topbar">
+    <span class="brand">⚔ AI 战 场</span>
+    <div id="factionStats"></div>
+    <div id="btns">
+      <div class="hbtn" id="speedBtn">1× 速度</div>
+      <div class="hbtn" id="pauseBtn">⏸ 暂停</div>
+      <div class="hbtn" id="viewBtn">🎥 俯瞰</div>
+      <div class="hbtn" id="visionBtn">👁 视野</div>
+      <div class="hbtn on" id="soundBtn">🔊 音效</div>
+      <div class="hbtn" id="restartBtn">↻ 重开</div>
+    </div>
+  </div>
+
+  <div id="radarBox">
+    <div class="rtitle">战 场 雷 达</div>
+    <canvas id="radar" width="320" height="300"></canvas>
+  </div>
+
+  <div id="intel">
+    <h3>情 报 中 心</h3>
+    <div id="intelRows"></div>
+    <div id="log"></div>
+  </div>
+
+  <div id="inspector">
+    <h3>单 位 档 案</h3>
+    <div id="inspBody"></div>
+  </div>
+
+  <div id="phase"></div>
+  <div id="banner"></div>
+  <div id="killfeed"></div>
+  <div id="intensity">战况平稳</div>
+  <div id="tips">
+    <b>左键拖</b> 旋转 · <b>中键拖</b> 平移 · <b>右键拖</b> 缩放 · <b>滚轮</b> 缩放 · <b>单击单位</b> 看档案 · <b>双击</b> 跟随
+  </div>
+</div>
+
+<!-- 结算 -->
+<div id="result">
+  <div class="rt" id="resultTitle">胜利</div>
+  <div class="rs" id="resultSub"></div>
+  <button id="againBtn">再 来 一 局</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ============================================================
+//  常量 / 世界（地图放大）
+// ============================================================
+const MAP_HALF   = 2200;     // 地图半径（方形）
+const ISLAND_R   = 1150;     // 主岛半径（陆地）
+const NAVAL_IN   = 1200;     // 海域内径（主岛外围）
+const NAVAL_OUT  = 2070;     // 海域外径
+const GROUND_Y   = 1.0;      // 地面基准高度（地形以此起伏）
+
+// 高山：可攀爬的真实地形（非尖刺锥子），高斯山体、坡度缓和
+const MOUNTAINS = [
+  {x:-430, z: 270, r:215, h:300},
+  {x: 360, z:-430, r:235, h:335},
+  {x: 540, z: 440, r:175, h:240},
+  {x:-570, z:-270, r:205, h:290},
+  {x:  90, z: 560, r:155, h:205},
+  {x:-210, z:-570, r:195, h:265},
+  {x: 710, z:-170, r:165, h:220},
+  {x:-690, z: 470, r:180, h:250},
+];
+
+// 地形高度场：平地 + 丘陵 + 可攀爬高山；不规则海岸沉入海中；河道下陷露水
+function terrainHeight(x, z) {
+  let h = GROUND_Y;
+  h += 5*Math.sin(x*0.004)*Math.cos(z*0.004) + 4*Math.sin((x+z)*0.003) + 3*Math.cos((x-z)*0.005);
+  if (h < -0.5) h = -0.5;            // 防止丘陵把地面压成海平面以下的坑洞
+  for (const m of MOUNTAINS) {
+    const dx = x-m.x, dz = z-m.z;
+    h += m.h * Math.exp(-(dx*dx+dz*dz)/(2*m.r*m.r));
+  }
+  if (inWaterway(x, z)) h = Math.min(h, -1.6);
+  const r = Math.hypot(x, z);
+  const ang = Math.atan2(z, x);
+  const shore = ISLAND_R - 34*Math.sin(ang*3) - 22*Math.sin(ang*5 + 1.3);
+  if (r > shore) {
+    const t = Math.min(1, (r - shore) / 70);
+    h = h*(1-t) + (-2.0)*t;
+  }
+  return h;
+}
+
+// 散布海中的小岛（海军活动 / 视觉层次），主战场仍在主岛
+const SMALL_ISLANDS = [
+  { x:-1560, z: 980, r:430 },
+  { x: 1620, z:-780, r:360 },
+  { x:  740, z:1770, r:330 },
+];
+
+
+const FACTION_COLORS = [0x3b82f6, 0xef4444, 0x22c55e, 0xeab308, 0xa855f7];
+const FACTION_NAMES  = ['蓝军', '红军', '绿军', '黄军', '紫军'];
+function hex(c){ return '#'+c.toString(16).padStart(6,'0'); }
+
+// ============================================================
+//  兵种定义（血量更高 / 节奏更慢 = 更像人）
+//    vision：视野半径，看不到目标就不开火
+// ============================================================
+const DEFS = {
+  infantry : { name:'步兵',   domain:'land',  targets:['land'],              hp:120, dmg:7,   speed:10, range:32,   cd:1.0, vision:240, weapon:'gun',      big:false, alt:0   },
+  tank     : { name:'坦克',   domain:'land',  targets:['land'],              hp:900, dmg:44,  speed:7,  range:58,   cd:2.6, vision:320, weapon:'shell',    big:false, alt:0   },
+  artillery: { name:'火炮',   domain:'land',  targets:['land'],              hp:420, dmg:85,  speed:4,  range:210,  cd:6.0, vision:360, weapon:'shell',    big:false, alt:0   },
+  rocket   : { name:'火箭炮', domain:'land',  targets:['land'],              hp:260, dmg:55,  speed:6,  range:300,  cd:8.0, vision:300, weapon:'rocket',   big:false, alt:0   },
+  sam      : { name:'防空弹', domain:'land',  targets:['air'],               hp:290, dmg:62,  speed:8,  range:180,  cd:4.5, vision:320, weapon:'sam',      big:false, alt:0   },
+  aa       : { name:'高炮',   domain:'land',  targets:['air'],               hp:320, dmg:28,  speed:8,  range:120,  cd:0.5, vision:280, weapon:'gun',      big:false, alt:0   },
+  heli     : { name:'直升机', domain:'air',   targets:['land','air'],        hp:360, dmg:24,  speed:16, range:75,   cd:1.4, vision:360, weapon:'missile',  big:false, alt:22  },
+  fighter  : { name:'战斗机', domain:'air',   targets:['air'],               hp:280, dmg:52,  speed:42, range:130,  cd:2.8, vision:460, weapon:'missile',  big:false, alt:52  },
+  bomber   : { name:'轰炸机', domain:'air',   targets:['land'],              hp:520, dmg:130, speed:20, range:100,  cd:5.5, vision:400, weapon:'bomb',     big:false, alt:70  },
+  warship  : { name:'驱逐舰', domain:'naval', targets:['naval','land','air'], hp:2200,dmg:75, speed:6,  range:240,  cd:4.0, vision:440, weapon:'shell',    big:false, alt:0   },
+  submarine: { name:'潜艇',   domain:'naval', targets:['naval'],             hp:700, dmg:130, speed:5,  range:180,  cd:5.5, vision:320, weapon:'torpedo',  big:false, alt:0   },
+};
+
+const ARMY = {
+  small : { infantry:6,  tank:3,  artillery:1, rocket:1, sam:1, aa:1, heli:2, fighter:1, bomber:1, warship:1, submarine:1 },
+  medium: { infantry:12, tank:6,  artillery:2, rocket:2, sam:1, aa:1, heli:3, fighter:2, bomber:1, warship:2, submarine:1 },
+  large : { infantry:20, tank:10, artillery:3, rocket:3, sam:2, aa:2, heli:5, fighter:3, bomber:2, warship:3, submarine:2 },
+};
+
+// 布阵站位：rf=离岛心的半径系数；spacing=同排横向间距；alt=高度
+const FORM = {
+  infantry : { rf:0.38, spacing:6 },
+  tank     : { rf:0.50, spacing:11 },
+  aa       : { rf:0.56, spacing:11 },
+  sam      : { rf:0.54, spacing:11 },
+  artillery: { rf:0.68, spacing:13 },
+  rocket   : { rf:0.72, spacing:13 },
+  heli     : { rf:0.46, spacing:15, alt:26 },
+  fighter  : { rf:0.40, spacing:19, alt:52 },
+  bomber   : { rf:0.32, spacing:24, alt:70 },
+  warship  : { naval:true, spacing:28 },
+  submarine: { naval:true, spacing:26 },
+};
+
+// ============================================================
+//  全局
+// ============================================================
+let scene, camera, renderer, controls, clock;
+let commandLayer;            // 指挥标记图层（集结点 + 进攻方向箭头）
+let factions = [];            // {id,color,name,units[],baseAngle,basePos,stance,focus,sneak,cdrT,commanders[]}
+let commanders = [];          // 全局指挥员列表，方便遍历
+let projectiles = [], fxList = [], flagList = [];
+let phase = 'menu';           // menu | battle | end
+let speedMul = 1, paused = false;
+let followUnit = null, selectedUnit = null;
+let visionOn = false;
+const coverBlockers = [];    // 地形遮挡物：{x,z,r,h,type:'mountain'|'bunker'}
+const trenches = [];         // 战壕：{x,z,r} 提供减伤
+const waterways = [];        // 河道：{cx,cz,angle,length,width}
+const bridges = [];          // 桥：{x,z,angle,across,deckW,hp,maxHp,dead,mesh,waterway}
+let factionCount = 3, scaleKey = 'medium';
+const raycaster = new THREE.Raycaster();
+const tmpV = new THREE.Vector3();
+let camTween = null;
+let screenShake = { x:0, y:0, mag:0, decay:0.85 };
+let totalKills = 0;  // 本局总击杀
+let floatNums = [];  // 浮动伤害数字 DOM 元素
+let incomingDamage = new Map(); // unitId -> 已预订伤害（集火协调）
+
+// 视野环（所有单位共用一份几何，按视野半径缩放）
+const visionRingGeo = new THREE.RingGeometry(0.985, 1.0, 48);
+
+// ============================================================
+//  材质缓存
+// ============================================================
+const matCache = {};
+function M(color, opts={}) {
+  const key = color + JSON.stringify(opts);
+  if (!matCache[key]) matCache[key] = new THREE.MeshStandardMaterial({ color, roughness:0.72, metalness:0.25, ...opts });
+  return matCache[key];
+}
+function basic(color, opts={}) {
+  const key = 'b'+color+JSON.stringify(opts);
+  if (!matCache[key]) matCache[key] = new THREE.MeshBasicMaterial({ color, ...opts });
+  return matCache[key];
+}
+
+// ============================================================
+//  音效引擎（Web Audio 合成，无需外部音频文件）
+// ============================================================
+const SFX = (() => {
+  let ctx=null, master=null, muted=false, ready=false, noiseBuf=null;
+  let budget=0, budgetT=0;
+  const last={};
+  const CD={ gun:0.045, shell:0.055, missile:0.08, bomb:0.12, torpedo:0.12, explosion:0.05, hit:0.07 };
+
+  function ensure(){
+    if (ready) return ctx;
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.5;
+      master.connect(ctx.destination);
+      const len = Math.floor(ctx.sampleRate*0.6);
+      noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i=0;i<len;i++) d[i]=Math.random()*2-1;
+      ready = true;
+      return ctx;
+    }catch(e){ ready=false; return null; }
+  }
+  function init(){ ensure(); if (ctx && ctx.state==='suspended') { try{ ctx.resume(); }catch(e){} } }
+  function setMuted(m){ muted=m; if (master) master.gain.value = m?0:0.5; }
+
+  function gate(kind, pos, maxD){
+    if (!ready || muted) return 0;
+    const now = performance.now()/1000;
+    const cd = CD[kind] || 0.05;
+    if (last[kind] && now-last[kind] < cd) return 0;
+    if (now-budgetT > 0.045){ budget=7; budgetT=now; }
+    if (budget<=0) return 0;
+    budget--; last[kind]=now;
+    let v = 1;
+    if (pos && camera){
+      const d = camera.position.distanceTo(pos);
+      v = Math.max(0.05, Math.min(1, 1 - d/(maxD||700)));
+    }
+    return v;
+  }
+  function env(g,t0,dur,peak,atk){
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002,peak), t0+(atk||0.006));
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  }
+  function tone(freq,dur,type,peak,v,sweep,delay){
+    const t0=ctx.currentTime+(delay||0);
+    const o=ctx.createOscillator(); o.type=type||'sine';
+    o.frequency.setValueAtTime(freq,t0);
+    if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(1,sweep),t0+dur);
+    const g=ctx.createGain(); env(g,t0,dur,peak*v);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0+dur+0.03);
+  }
+  function noiseB(dur,ftype,freq,peak,v,sweep,q,delay){
+    const t0=ctx.currentTime+(delay||0);
+    const s=ctx.createBufferSource(); s.buffer=noiseBuf; s.loop=true;
+    const f=ctx.createBiquadFilter(); f.type=ftype; f.frequency.setValueAtTime(freq,t0); f.Q.value=q||1;
+    if(sweep) f.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),t0+dur);
+    const g=ctx.createGain(); env(g,t0,dur,peak*v);
+    s.connect(f); f.connect(g); g.connect(master);
+    s.start(t0); s.stop(t0+dur+0.03);
+  }
+
+  return {
+    init, setMuted,
+    isMuted(){ return muted; },
+    toggle(){ setMuted(!muted); return muted; },
+
+    weapon(kind,pos){
+      const v = gate(kind,pos,700); if(!v) return;
+      if(kind==='gun'){ noiseB(0.05,'highpass',1000,0.22,v,1400,0.7); tone(180,0.06,'square',0.12,v,70); }
+      else if(kind==='shell'){ tone(150,0.34,'sine',0.5,v,42); noiseB(0.28,'lowpass',700,0.34,v,140); }
+      else if(kind==='missile'){ noiseB(0.42,'bandpass',420,0.3,v,1900,1.1); }
+      else if(kind==='bomb'){ tone(820,0.55,'sine',0.14,v,260); noiseB(0.5,'bandpass',900,0.12,v,300,1); }
+      else if(kind==='torpedo'){ tone(95,0.5,'sine',0.32,v,50); noiseB(0.45,'lowpass',400,0.24,v,90); }
+    },
+    boom(size,pos){
+      const v = gate('explosion',pos,780); if(!v) return;
+      const s = Math.min(2, (size||14)/16);
+      tone(95, 0.7*(0.8+s*0.3),'sine',0.55,v,28);
+      tone(52, 0.95,'triangle',0.35,v,24,0.02);
+      noiseB(0.65,'lowpass',1000,0.45,v,120,0.8);
+    },
+    hit(pos){
+      const v = gate('hit',pos,320); if(!v) return;
+      noiseB(0.05,'highpass',1800,0.15,v,2400,0.8);
+    },
+    ui(){ if(!ready||muted) return; tone(680,0.07,'square',0.12,1,900); },
+    banner(){ if(!ready||muted) return; tone(520,0.12,'sine',0.16,1,760); tone(784,0.16,'sine',0.14,1,784,0.09); },
+    victory(win){
+      if(!ready||muted) return;
+      const notes = win ? [523,659,784,1047] : [392,330,262];
+      notes.forEach((f,i)=> tone(f,0.35,'triangle',0.22,1,null,i*0.16));
+    }
+  };
+})();
+
+// ============================================================
+//  初始化
+// ============================================================
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a1018);
+  scene.fog = new THREE.Fog(0x16243a, 1600, 4400);
+
+  // 指挥标记图层（集结点 + 进攻方向箭头），按阵营着色
+  commandLayer = new THREE.Group();
+  scene.add(commandLayer);
+
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  document.body.appendChild(renderer.domElement);
+
+  camera = new THREE.PerspectiveCamera(48, innerWidth/innerHeight, 1, 4000);
+  camera.position.set(520, 1850, 1850);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 30;
+  controls.maxDistance = 4400;
+  controls.maxPolarAngle = Math.PI * 0.49;
+  controls.target.set(0, 0, 0);
+  controls.screenSpacePanning = false;
+  controls.panSpeed = 1.2;
+  // 操控改键：左键旋转、中键平移、右键无浏览器菜单冲突
+  controls.mouseButtons = {
+    LEFT: THREE.MOUSE.ROTATE,
+    MIDDLE: THREE.MOUSE.PAN,
+    RIGHT: THREE.MOUSE.DOLLY
+  };
+  window.camera = camera;
+  window.controls = controls;
+  // 调试钩子：供自动化验证读取战场状态（不影响游戏逻辑）
+  window.__game = {
+    get factions(){ return factions; },
+    get phase(){ return phase; },
+    get simTime(){ return simTime; },
+    isWaterAt, terrainHeight, SMALL_ISLANDS,
+    get bridges(){ return bridges; },
+  };
+
+  // 光照
+  scene.add(new THREE.HemisphereLight(0xc8d8ee, 0x4a5a30, 0.9));
+  const sun = new THREE.DirectionalLight(0xfff2d8, 1.5);
+  sun.position.set(300, 520, 240);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  const d = 560;
+  Object.assign(sun.shadow.camera, { left:-d, right:d, top:d, bottom:-d, near:10, far:1600 });
+  sun.shadow.bias = -0.0006;          // 抗阴影闪烁
+  sun.shadow.normalBias = 0.9;
+  scene.add(sun);
+  const rim = new THREE.DirectionalLight(0x3b82f6, 0.5);
+  rim.position.set(-300, 180, -240);
+  scene.add(rim);
+
+  buildWorld();
+
+  clock = new THREE.Clock();
+  addEventListener('resize', onResize);
+
+  // 双击单位 -> 跟随视角（只响应左键，避免右键/中键误触）
+  renderer.domElement.addEventListener('dblclick', e=>{
+    if (e.button !== 0) return;
+    const u = pickUnit(e);
+    if (u) {
+      followUnit = u;
+      const dist = u.def.domain==='air' ? 90 : u.def.domain==='naval' ? 120 : 85;
+      const off = new THREE.Vector3(0, dist*0.7, dist);
+      flyTo(u.pos.clone().add(off), u.pos.clone(), 0.9);
+      banner(`跟随：${u.faction.name} ${u.def.name}`);
+    } else {
+      followUnit = null;
+      banner('已解除跟随');
+    }
+  });
+
+  // 单击单位 -> 打开档案（只响应左键）
+  let downXY=null, downBtn=null;
+  renderer.domElement.addEventListener('pointerdown', e=>{ downXY=[e.clientX,e.clientY]; downBtn=e.button; });
+  renderer.domElement.addEventListener('click', e=>{
+    if (!downXY || downBtn !== 0 || e.button !== 0) { downXY=null; downBtn=null; return; }
+    const moved = Math.hypot(e.clientX-downXY[0], e.clientY-downXY[1]);
+    downXY=null; downBtn=null;
+    if (moved > 5 || phase==='menu') return;
+    const u = pickUnit(e);
+    selectedUnit = u || null;
+    renderInspector();
+  });
+
+  renderer.setAnimationLoop(loop);
+  document.getElementById('loader').style.display = 'none';
+}
+
+function pickUnit(e){
+  const m = new THREE.Vector2((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
+  raycaster.setFromCamera(m, camera);
+  const objs = [];
+  for (const f of factions) for (const u of f.units) if (!u.dead) objs.push(u.mesh);
+  const hits = raycaster.intersectObjects(objs, true);
+  if (hits.length) return findUnitByMesh(hits[0].object);
+  return null;
+}
+
+// ============================================================
+//  世界搭建（修复 z-fighting 闪烁：分层高度错开）
+// ============================================================
+function buildWorld() {
+  const SW = MAP_HALF*2.6;
+
+  // 海洋
+  const ocean = new THREE.Mesh(
+    new THREE.PlaneGeometry(SW, SW, 1, 1),
+    new THREE.MeshStandardMaterial({ color:0x0d3b66, roughness:0.28, metalness:0.55 })
+  );
+  ocean.rotation.x = -Math.PI/2;
+  ocean.position.y = -2.0;
+  ocean.receiveShadow = true;
+  scene.add(ocean);
+
+  // 海中大网格波纹（静态）
+  const wgrid = new THREE.GridHelper(SW, 90, 0x1b5a8c, 0x14456b);
+  wgrid.position.y = -1.6;
+  scene.add(wgrid);
+
+  // 静态波浪线（ faint，不再做呼吸动画，避免外圈一直晃眼）
+  for (let r=0;r<7;r++) {
+    const wave = new THREE.Mesh(
+      new THREE.TorusGeometry(ISLAND_R+90+r*70, 0.5, 4, 160),
+      new THREE.MeshBasicMaterial({ color:0x1b6a9c, transparent:true, opacity:0.05 })
+    );
+    wave.rotation.x = -Math.PI/2;
+    wave.position.y = -1.3;
+    scene.add(wave);
+  }
+
+  // 主岛：浅滩 / 沙滩 / 陆地 / 草地 四层，顶面高度依次错开
+  const shallows = new THREE.Mesh(
+    new THREE.CylinderGeometry(ISLAND_R+40, ISLAND_R+70, 6, 128, 1),
+    new THREE.MeshStandardMaterial({ color:0x1a5f9a, roughness:0.6, metalness:0.3, transparent:true, opacity:0.6 })
+  );
+  shallows.position.y = -1.8;
+  scene.add(shallows);
+
+  const beach = new THREE.Mesh(
+    new THREE.CylinderGeometry(ISLAND_R+60, ISLAND_R+90, 10, 128, 1),
+    M(0xc2a878, { roughness:0.95 })
+  );
+  beach.position.y = -9.0; beach.receiveShadow = true; scene.add(beach);
+
+  const land = new THREE.Mesh(
+    new THREE.CylinderGeometry(ISLAND_R+20, ISLAND_R+60, 10, 128, 1),
+    M(0x5d8a44, { roughness:0.95 })
+  );
+  land.position.y = -8.5; land.receiveShadow = true; scene.add(land);
+
+  // 水路 / 河道：先注册（地形据此下陷成河床），地面单位绕行、海军通航
+  addWaterway(0, -ISLAND_R*0.15, Math.PI/4.2, ISLAND_R*1.5, 70);
+  addWaterway(ISLAND_R*0.12, 0, -Math.PI/5, ISLAND_R*1.3, 54);
+  addWaterway(-ISLAND_R*0.10, ISLAND_R*0.10, Math.PI/9, ISLAND_R*1.1, 48);
+
+  // 桥梁：陆军过河干道（可被炸毁，炸毁后只能泅渡）
+  addBridge(waterways[0], -300);
+  addBridge(waterways[0],  300);
+  addBridge(waterways[1],  40);
+  addBridge(waterways[2], -60);
+
+  // 地形：起伏丘陵 + 可攀爬高山 + 不规则海岸 + 河道河床（替代原平面草地）
+  buildTerrain();
+
+  // 散布海中的小岛（海军活动 / 视觉层次）
+  SMALL_ISLANDS.forEach(is => addSmallIsland(is.x, is.z, is.r));
+
+  addIslandDecor();
+
+  // 高山：登记为视野遮挡物（山体已由 terrainHeight 体现为可攀登山峰）
+  buildMountains();
+}
+
+function addSmallIsland(cx, cz, r) {
+  // 水下基座（暗色裙边，沉到海床，让岛从水里"长"出来而不是漂着）
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(r+46, r+95, 9, 48, 1), M(0x3a5a52,{roughness:1}));
+  base.position.set(cx, -6.5, cz); scene.add(base);
+  // 浅滩过渡环（半透水色，模拟岸线没入海中的渐变）
+  const shallow = new THREE.Mesh(new THREE.CylinderGeometry(r+30, r+52, 4, 48, 1),
+    new THREE.MeshStandardMaterial({ color:0x2a7a9a, roughness:0.5, metalness:0.3, transparent:true, opacity:0.55 }));
+  shallow.position.set(cx, -3.4, cz); scene.add(shallow);
+  // 沙滩坡（大底小顶，坡面没入水面以下，看不见"圆盘边"）
+  const beach = new THREE.Mesh(new THREE.CylinderGeometry(r+8, r+34, 12, 48, 1), M(0xc2a878,{roughness:0.95}));
+  beach.position.set(cx, -5.4, cz); beach.receiveShadow = true; scene.add(beach);
+  const grass = new THREE.Mesh(new THREE.CylinderGeometry(r, r+12, 12, 48, 1), M(0x4f8a40,{roughness:0.95}));
+  grass.position.set(cx, -4.4, cz); grass.receiveShadow = true; scene.add(grass);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(r*0.9, r, 1.2, 48, 1), M(0x568a42,{roughness:0.95}));
+  top.position.set(cx, 0.4, cz); top.receiveShadow = true; scene.add(top);
+  // 岸边礁石（遮一遮水线交界，也是抢滩掩体）
+  for (let i=0;i<10;i++){
+    const a = Math.random()*Math.PI*2;
+    const rr = r + 6 + Math.random()*14;
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5+Math.random()*2.5, 0), M(0x5f6b6b,{roughness:1}));
+    rock.position.set(cx+Math.cos(a)*rr, -1.2+Math.random()*1.4, cz+Math.sin(a)*rr);
+    rock.rotation.set(Math.random(),Math.random(),Math.random());
+    rock.castShadow = true; scene.add(rock);
+  }
+  for (let i=0;i<7;i++){
+    const a=Math.random()*Math.PI*2, rr=Math.random()*r*0.7;
+    const t=makeTree(); t.position.set(cx+Math.cos(a)*rr, GROUND_Y, cz+Math.sin(a)*rr); scene.add(t);
+  }
+}
+
+// 高山：山体已由 terrainHeight 体现为可攀爬的真实山峰；此处仅登记为视野遮挡物
+function buildMountains() {
+  MOUNTAINS.forEach(m=>{
+    coverBlockers.push({ x:m.x, z:m.z, r:m.r*0.85, h:m.h, type:'mountain' });
+  });
+}
+
+function addIslandDecor() {
+  // 树林斑块：聚类种植，形成战场地形掩护带
+  const clusters = [
+    {x:-520,z: 180,r:170,n:45}, {x:-220,z: 460,r:160,n:40},
+    {x: 420,z:-520,r:180,n:48}, {x: 620,z: 120,r:150,n:35},
+    {x:-120,z:-620,r:160,n:38}, {x: 300,z: 500,r:140,n:32},
+    {x:-700,z:-380,r:130,n:28}, {x: 760,z: 560,r:120,n:26},
+  ];
+  for (const c of clusters) placeTreeCluster(c.x, c.z, c.r, c.n);
+  // 沿主岛边缘稀疏点缀
+  for (let i=0;i<90;i++) {
+    const a = Math.random()*Math.PI*2;
+    const r = ISLAND_R*0.78 + Math.random()*ISLAND_R*0.16;
+    const x = Math.cos(a)*r, z = Math.sin(a)*r;
+    if (inWaterway(x,z)) continue;
+    let blocked=false;
+    for (const b of coverBlockers) if (b.type==='bunker' && Math.hypot(x-b.x,z-b.z)<b.r+12) { blocked=true; break; }
+    if (blocked) continue;
+    const t = makeTree(); t.position.set(x,terrainHeight(x,z),z); t.rotation.y=Math.random()*Math.PI*2; scene.add(t);
+  }
+  // 小岛补树林
+  SMALL_ISLANDS.forEach(is=>{
+    for (let i=0;i<22;i++) {
+      const a=Math.random()*Math.PI*2, rr=Math.random()*is.r*0.75;
+      const x=is.x+Math.cos(a)*rr, z=is.z+Math.sin(a)*rr;
+      const t=makeTree(); t.position.set(x,GROUND_Y,z); t.rotation.y=Math.random()*Math.PI*2; scene.add(t);
+    }
+  });
+  // 岩石
+  for (let i=0;i<80;i++) {
+    const p = randInIsland(20, ISLAND_R-20);
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(2+Math.random()*3,0), M(0x6b7280,{roughness:1}));
+    r.position.set(p.x, terrainHeight(p.x,p.z)+1, p.z);
+    r.rotation.set(Math.random(),Math.random(),Math.random());
+    r.castShadow = true; scene.add(r);
+  }
+  // 村镇建筑群
+  const towns = [ [320,200],[-360,140],[100,-380],[-200,-260],[360,-140],[-80,300],[520,520],[-560,560] ];
+  towns.forEach(([cx,cz]) => {
+    for (let i=0;i<8;i++) {
+      const b = makeBuilding();
+      b.position.set(cx+(Math.random()-0.5)*90, terrainHeight(cx,cz), cz+(Math.random()-0.5)*90);
+      scene.add(b);
+    }
+  });
+  // 矮丘已由 terrainHeight 起伏体现，不再单独放置锥状丘陵
+  // 碉堡（挡视野 + 减伤）
+  for (let i=0;i<16;i++) {
+    const p = randInIsland(130, ISLAND_R-130);
+    const b = makeBunker();
+    b.position.set(p.x, terrainHeight(p.x,p.z), p.z);
+    b.rotation.y = Math.random()*Math.PI;
+    scene.add(b);
+    coverBlockers.push({ x:p.x, z:p.z, r:17, h:13, type:'bunker' });
+  }
+  // 战壕（减伤带）
+  for (let i=0;i<8;i++) {
+    const p = randInIsland(160, ISLAND_R-160);
+    const tr = makeTrench();
+    tr.position.set(p.x, terrainHeight(p.x,p.z), p.z);
+    tr.rotation.y = Math.random()*Math.PI;
+    scene.add(tr);
+    trenches.push({ x:p.x, z:p.z, r:38 });
+  }
+}
+
+function makeBunker() {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.BoxGeometry(26, 12, 26), M(0x6b6f73,{roughness:0.95}));
+  base.position.y = 6; base.castShadow = true; base.receiveShadow = true; g.add(base);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(20, 4, 20), M(0x565a5e,{roughness:0.95}));
+  top.position.y = 13; g.add(top);
+  // 射击孔（深色条）
+  const slit = new THREE.Mesh(new THREE.BoxGeometry(20, 3, 2), M(0x1a1c1e));
+  slit.position.set(0, 8, 13); g.add(slit);
+  return g;
+}
+
+function makeTrench() {
+  const g = new THREE.Group();
+  const trough = new THREE.Mesh(new THREE.BoxGeometry(70, 4, 22), M(0x4a3f2e,{roughness:1}));
+  trough.position.y = -1; g.add(trough);
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(70, 2, 6), M(0x6b5a3a,{roughness:1}));
+  lip.position.set(0, 1, 11); g.add(lip);
+  const lip2 = lip.clone(); lip2.position.set(0,1,-11); g.add(lip2);
+  return g;
+}
+
+function randInIsland(minR, maxR) {
+  for (let attempt=0; attempt<8; attempt++) {
+    const a = Math.random()*Math.PI*2;
+    const r = minR + Math.random()*(maxR-minR);
+    const x = Math.cos(a)*r, z = Math.sin(a)*r;
+    let ok = true;
+    for (const b of coverBlockers) {
+      if (b.type==='mountain' && Math.hypot(x-b.x, z-b.z) < b.r+6) { ok=false; break; }
+    }
+    if (ok) return new THREE.Vector3(x, terrainHeight(x,z), z);
+  }
+  const a = Math.random()*Math.PI*2, r = minR + Math.random()*(maxR-minR);
+  return new THREE.Vector3(Math.cos(a)*r, terrainHeight(Math.cos(a)*r, Math.sin(a)*r), Math.sin(a)*r);
+}
+
+function addWaterway(cx, cz, angle, length, width) {
+  waterways.push({ cx, cz, angle, length, width });
+  const g = new THREE.Group();
+  // 河面抬高到接近草地顶面，颜色鲜亮，让人一眼看出是水
+  const wl = new THREE.Mesh(
+    new THREE.PlaneGeometry(width*0.98, length*0.98, 1, 12),
+    new THREE.MeshStandardMaterial({ color:0x16a9e8, roughness:0.08, metalness:0.35,
+      transparent:true, opacity:0.95 })
+  );
+  wl.rotation.x = -Math.PI/2;
+  wl.position.y = 0.36;                 // 贴近草地顶面 0.4，只低一点避免 z-fighting
+  wl.receiveShadow = true;
+  g.add(wl);
+  g.position.set(cx, 0, cz);
+  g.rotation.y = angle;
+  scene.add(g);
+  // 浅水沙滩带（让水陆边界更分明）
+  const shoal = new THREE.Mesh(
+    new THREE.PlaneGeometry(width*1.18, length*1.12, 1, 12),
+    new THREE.MeshStandardMaterial({ color:0x4db6e8, roughness:0.22, metalness:0.25,
+      transparent:true, opacity:0.55 })
+  );
+  shoal.rotation.x = -Math.PI/2;
+  shoal.position.y = 0.32;
+  shoal.position.set(cx, 0.18, cz);
+  shoal.rotation.y = angle;
+  scene.add(shoal);
+  // 河岸（泥土色矮堤，让水陆分界清晰）
+  [-1,1].forEach(s=>{
+    const bank = new THREE.Mesh(
+      new THREE.BoxGeometry(width*0.14, 1.6, length*1.02),
+      M(0xc4a86e,{roughness:0.95})
+    );
+    bank.position.set(s*(width*0.5+width*0.07), -1.4, 0);
+    bank.rotation.y = angle;
+    scene.add(bank);
+  });
+}
+
+// ---- 桥梁：横跨河道的干道，陆军走桥不减速；可被爆炸炸毁 ----
+function addBridge(w, offset) {
+  // 河道长度方向（局部 Z）在世界中的朝向
+  const dx = Math.sin(w.angle), dz = Math.cos(w.angle);
+  const x = w.cx + dx*offset, z = w.cz + dz*offset;
+  const across = w.width * 1.7, deckW = 18;
+  const g = new THREE.Group();
+  const deckMat = new THREE.MeshStandardMaterial({ color:0x7a6a4a, roughness:0.85, metalness:0.1 });
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(across, 1.4, deckW), deckMat);
+  deck.position.y = 0.5; deck.castShadow = true; deck.receiveShadow = true; g.add(deck);
+  // 护栏
+  [-1,1].forEach(s=>{
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(across, 1.0, 0.6), deckMat);
+    rail.position.set(0, 1.6, s*(deckW/2-0.4)); g.add(rail);
+  });
+  // 桥墩
+  for (const px of [-across*0.3, 0, across*0.3]) {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.0, 4.5, 8), M(0x5a5f63,{roughness:0.9}));
+    pillar.position.set(px, -1.6, 0); g.add(pillar);
+  }
+  g.position.set(x, 0, z);
+  g.rotation.y = w.angle;
+  scene.add(g);
+  bridges.push({ x, z, angle:w.angle, across, deckW, hp:700, maxHp:700, dead:false, mesh:g, waterway:w });
+}
+
+// 点 (x,z) 是否在某座完好桥的面板范围内（返回该桥或 null）
+function bridgeAt(x, z) {
+  for (const b of bridges) {
+    if (b.dead) continue;
+    const dx = x - b.x, dz = z - b.z;
+    const cos = Math.cos(-b.angle), sin = Math.sin(-b.angle);
+    const lx = dx*cos - dz*sin, lz = dx*sin + dz*cos;
+    if (Math.abs(lx) <= b.across/2 + 1 && Math.abs(lz) <= b.deckW/2 + 1) return b;
+  }
+  return null;
+}
+
+// 爆炸对桥的伤害（按到桥面板的最近距离判定）
+function damageBridges(pos, size) {
+  for (const b of bridges) {
+    if (b.dead) continue;
+    const dx = pos.x - b.x, dz = pos.z - b.z;
+    const cos = Math.cos(-b.angle), sin = Math.sin(-b.angle);
+    const lx = dx*cos - dz*sin, lz = dx*sin + dz*cos;
+    const ex = Math.max(0, Math.abs(lx) - b.across/2);
+    const ez = Math.max(0, Math.abs(lz) - b.deckW/2);
+    if (Math.hypot(ex, ez) < size) {
+      b.hp -= size * 9;
+      if (b.hp <= 0) destroyBridge(b);
+    }
+  }
+}
+
+function destroyBridge(b) {
+  b.dead = true;
+  b.mesh.rotation.z = 0.32;          // 桥面垮塌倾斜
+  b.mesh.position.y = -2.2;          // 沉入水中
+  logEvent('一座桥梁被炸毁！该河段只能泅渡', 0xffd479);
+  banner('桥梁被炸毁！');
+}
+
+// 陆军过桥寻路：直行路线要穿河时，若前方有活桥且代价可接受，先上桥
+function routeViaBridge(unit, p) {
+  if (unit.def.domain !== 'land' || unit.homeIsland) return p;
+  if (unit._inWater) return p;                          // 已下水就直接游
+  if (bridgeAt(unit.pos.x, unit.pos.z)) return p;       // 已在桥面继续走
+  // 采样检测 pos→p 是否穿河
+  let hit = null;
+  for (let i=1;i<=8;i++){
+    const x = unit.pos.x + (p.x-unit.pos.x)*i/8;
+    const z = unit.pos.z + (p.z-unit.pos.z)*i/8;
+    const w = inWaterway(x,z);
+    if (w) { hit = w; break; }
+  }
+  if (!hit) return p;
+  // 该河道上最近的活桥
+  let best = null, bd = Infinity;
+  for (const b of bridges) {
+    if (b.dead || b.waterway !== hit) continue;
+    const d = Math.hypot(b.x-unit.pos.x, b.z-unit.pos.z);
+    if (d < bd) { bd = d; best = b; }
+  }
+  if (!best) return p;                                  // 桥已全毁 → 只能泅渡
+  // 桥在背后 → 不值得回头，直接泅渡
+  const dot = (best.x-unit.pos.x)*(p.x-unit.pos.x) + (best.z-unit.pos.z)*(p.z-unit.pos.z);
+  if (dot < 0) return p;
+  // 绕桥代价超过直渡 1.6 倍 → 直接泅渡
+  const dp = Math.hypot(p.x-unit.pos.x, p.z-unit.pos.z);
+  if (bd > dp * 1.6) return p;
+  return new THREE.Vector3(best.x, 0, best.z);
+}
+
+// 地形网格：跟随 terrainHeight 起伏，按高度顶点着色（沙滩/草地/岩石/雪顶），河道着水色
+function buildTerrain() {
+  const S = ISLAND_R + 140;
+  const seg = 200;
+  const geo = new THREE.PlaneGeometry(S*2, S*2, seg, seg);
+  geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position;
+  const colors = [];
+  const cSand=[0.78,0.69,0.50], cGrass=[0.43,0.66,0.29], cGrass2=[0.34,0.55,0.21],
+        cRock=[0.47,0.43,0.35], cSnow=[0.92,0.94,0.96], cWater=[0.09,0.66,0.91];
+  for (let i=0;i<pos.count;i++){
+    const x = pos.getX(i), z = pos.getZ(i);
+    const y = terrainHeight(x, z);
+    pos.setY(i, y);
+    let c;
+    if (inWaterway(x, z)) c = cWater;
+    else if (y < -0.5) c = cSand;
+    else if (y < 55) c = cGrass;
+    else if (y < 150) c = cGrass2;
+    else if (y < 235) c = cRock;
+    else c = cSnow;
+    colors.push(c[0], c[1], c[2]);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.96, metalness:0.0 });
+  const ground = new THREE.Mesh(geo, mat);
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+// 点 (x,z) 是否在旋转水道椭圆内（用于河道水深 / 涉水判定）
+function inWaterway(x, z) {
+  for (const w of waterways) {
+    const dx = x - w.cx, dz = z - w.cz;
+    const cos = Math.cos(-w.angle), sin = Math.sin(-w.angle);
+    const lx = dx*cos - dz*sin;
+    const ly = dx*sin + dz*cos;
+    if ((lx*lx)/((w.width*0.55)**2) + (ly*ly)/((w.length*0.52)**2) <= 1) return w;
+  }
+  return null;
+}
+
+// ---- 渡水/登陆辅助：与 terrainHeight 共用同一条不规则岸线 ----
+function shoreRadiusAt(ang) {
+  return ISLAND_R - 34*Math.sin(ang*3) - 22*Math.sin(ang*5 + 1.3);
+}
+// 点 (x,z) 落在哪座小岛上（含边缘容差），不在则 null
+function onSmallIsland(x, z) {
+  for (const is of SMALL_ISLANDS) {
+    if (Math.hypot(x-is.x, z-is.z) < is.r*0.98) return is;
+  }
+  return null;
+}
+// 点 (x,z) 是否为可涉水的水域：河道 或 主岛岸线外的海（小岛陆地除外）
+function isWaterAt(x, z) {
+  if (inWaterway(x, z)) return true;
+  const r = Math.hypot(x, z);
+  if (r > shoreRadiusAt(Math.atan2(z, x)) + 6) return !onSmallIsland(x, z);
+  return false;
+}
+
+function makeTree() {
+  const g = new THREE.Group();
+  const h = 3.2 + Math.random()*2.8;               // 树干高度 3.2~6
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.55,1.0,h,7), M(0x6b4a1f,{roughness:0.95}));
+  trunk.position.y = h/2; trunk.castShadow = true; g.add(trunk);
+  const palettes = [
+    [0x1f6b2a,0x267a33,0x2f8a3c],
+    [0x2d5a27,0x366e2f,0x3f8238],
+    [0x3a6b1e,0x4a8028,0x5a9532],
+    [0x1e5a3a,0x28704a,0x32865a],
+  ];
+  const pal = palettes[Math.floor(Math.random()*palettes.length)];
+  for (let i=0;i<3;i++){
+    const cr = 2.8 - i*0.55 + Math.random()*0.5;
+    const ch = 4.0 - i*0.5 + Math.random()*0.8;
+    const c = new THREE.Mesh(new THREE.ConeGeometry(cr, ch, 8), M(pal[i],{roughness:0.9}));
+    c.position.y = h + 1.0 + i*(ch*0.55); c.castShadow = true; g.add(c);
+  }
+  g.scale.setScalar(0.75 + Math.random()*0.85);
+  g.rotation.z = (Math.random()-0.5)*0.12;
+  g.rotation.x = (Math.random()-0.5)*0.12;
+  return g;
+}
+
+function placeTreeCluster(cx, cz, radius, count) {
+  const placed = [];
+  for (let i=0;i<count;i++) {
+    const a = Math.random()*Math.PI*2;
+    const r = Math.sqrt(Math.random())*radius;
+    const x = cx + Math.cos(a)*r;
+    const z = cz + Math.sin(a)*r;
+    const distFromCenter = Math.hypot(x,z);
+    if (distFromCenter < 45 || distFromCenter > ISLAND_R-12) continue;
+    if (inWaterway(x,z)) continue;
+    // 远离高山
+    let blocked = false;
+    for (const b of coverBlockers) {
+      if (b.type==='mountain' && Math.hypot(x-b.x,z-b.z) < b.r+18) { blocked=true; break; }
+      if (b.type==='bunker'  && Math.hypot(x-b.x,z-b.z) < b.r+14) { blocked=true; break; }
+    }
+    if (blocked) continue;
+    // 远离战壕
+    for (const t of trenches) if (Math.hypot(x-t.x,z-t.z) < t.r+10) { blocked=true; break; }
+    if (blocked) continue;
+    // 远离村镇建筑（粗略半径）
+    const towns = [ [320,200],[-360,140],[100,-380],[-200,-260],[360,-140],[-80,300],[520,520],[-560,560] ];
+    for (const [tx,tz] of towns) if (Math.hypot(x-tx,z-tz) < 65) { blocked=true; break; }
+    if (blocked) continue;
+    const t = makeTree();
+    t.position.set(x, terrainHeight(x,z), z);
+    t.rotation.y = Math.random()*Math.PI*2;
+    scene.add(t);
+    placed.push(t);
+  }
+  return placed;
+}
+
+function makeBuilding() {
+  const g = new THREE.Group();
+  const h = 6+Math.random()*14, w = 8+Math.random()*8, d = 8+Math.random()*8;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), M(Math.random()>0.5?0x8b8f96:0x6d7178));
+  b.position.y = h/2; b.castShadow = true; b.receiveShadow = true; g.add(b);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(w*1.05,1,d*1.05), M(0x50545a));
+  roof.position.y = h+0.5; g.add(roof);
+  return g;
+}
+
+// ============================================================
+//  单位建模（现代兵器，朝向 +Z）
+// ============================================================
+// 单名士兵：腿/靴/躯干/装具/头/盔/臂/步枪，像个兵
+function makeSoldier(color) {
+  const g = new THREE.Group();
+  const skin=0xcf9e7a, dark=0x2b2f33, metal=0x6b6f73;
+  for (const sx of [-0.28,0.28]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.18,1.1,6), M(color));
+    leg.position.set(sx,0.55,0); g.add(leg);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.3,0.72), M(dark));
+    boot.position.set(sx,0.15,0.06); g.add(boot);
+  }
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.92,1.1,0.5), M(color));
+  torso.position.y=1.65; g.add(torso);
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.52,0.72,0.26), M(0x3a3f45));
+  pack.position.set(0,1.7,-0.36); g.add(pack);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32,8,6), M(skin));
+  head.position.y=2.45; g.add(head);
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.37,8,6,0,Math.PI*2,0,Math.PI*0.6), M(0x2b2f33));
+  helm.position.y=2.5; g.add(helm);
+  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.9,6), M(color));
+  armL.position.set(-0.56,1.7,0.12); armL.rotation.z=0.5; g.add(armL);
+  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.9,6), M(color));
+  armR.position.set(0.56,1.7,0.12); armR.rotation.z=-0.5; g.add(armR);
+  const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,1.5), M(metal));
+  rifle.position.set(0.0,1.5,0.72); g.add(rifle);
+  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  return g;
+}
+
+// 车辆浮渡浮筒：预建隐藏，入水自动显示（syncMesh 按 _inWater 切换）
+function addPontoons(g, sideX, len) {
+  [-1,1].forEach(s=>{
+    const p = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, len, 4, 8), M(0x8a8f7a,{roughness:0.6}));
+    p.rotation.x = Math.PI/2;
+    p.position.set(s*sideX, 0.6, 0);
+    p.name = 'pontoon';
+    p.visible = false;
+    g.add(p);
+  });
+}
+
+function buildModel(type, color) {
+  const g = new THREE.Group();
+  const dark = 0x3a3f45, metal = 0x5a6169, glass = 0x9fdcff;
+
+  if (type === 'infantry') {
+      // 一个班：4 名有模有样的士兵（腿/躯干/头/盔/枪）
+      const layout = [[-2.6,1.7],[2.4,2.0],[-1.4,-2.0],[1.8,-1.6]];
+      for (const [lx,lz] of layout) {
+        const s = makeSoldier(color);
+        s.position.set(lx,0,lz);
+        s.rotation.y = Math.random()*Math.PI*2;
+        g.add(s);
+      }
+    }
+
+  else if (type === 'tank') {
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(4.4,2.2,7.6), M(0x4a5d3a));
+    hull.position.y = 2.4; hull.castShadow = true; g.add(hull);
+    [-2.2,2.2].forEach(x=>{
+      const tr = new THREE.Mesh(new THREE.BoxGeometry(0.9,1.6,8.2), M(0x23262a));
+      tr.position.set(x,1.4,0); tr.castShadow = true; g.add(tr);
+    });
+    const turret = new THREE.Mesh(new THREE.BoxGeometry(3.4,1.5,4.2), M(color));
+    turret.position.set(0,4.05,-0.4); turret.castShadow = true; g.add(turret);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.32,6,8), M(metal));
+    barrel.rotation.x = Math.PI/2; barrel.position.set(0,4,3.4); g.add(barrel);
+    const detail = new THREE.Mesh(new THREE.BoxGeometry(4.5,0.4,7.7), M(0x3d4c2f));
+    detail.position.y = 3.4; g.add(detail);
+    addPontoons(g, 3.1, 8.6);
+  }
+
+  else if (type === 'artillery') {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(4.6,2,9), M(0x556b45));
+    base.position.y = 2.6; base.castShadow = true; g.add(base);
+    [[-2.2,4],[2.2,4],[-2.2,-3],[2.2,-3]].forEach(([x,z])=>{
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,0.8,10), M(0x1c1f22));
+      w.rotation.z = Math.PI/2; w.position.set(x,1,z); g.add(w);
+    });
+    const turret = new THREE.Mesh(new THREE.BoxGeometry(3,1.4,3.4), M(color));
+    turret.position.set(0,4.1,-1); g.add(turret);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.4,11,8), M(metal));
+    barrel.rotation.x = Math.PI/2.6; barrel.position.set(0,5.6,4); g.add(barrel);
+    addPontoons(g, 3.2, 9.6);
+  }
+
+  else if (type === 'aa') {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(4,1.8,7.4), M(0x5b6b48));
+    base.position.y = 2.4; base.castShadow = true; g.add(base);
+    [[-1.9,2.6],[1.9,2.6],[-1.9,-2.6],[1.9,-2.6]].forEach(([x,z])=>{
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,0.7,10), M(0x1c1f22));
+      w.rotation.z = Math.PI/2; w.position.set(x,1,z); g.add(w);
+    });
+    const mount = new THREE.Mesh(new THREE.BoxGeometry(2.6,1.4,2.6), M(color));
+    mount.position.set(0,3.7,0); g.add(mount);
+    [-0.5,0.5].forEach(x=>{
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,5,6), M(metal));
+      b.rotation.x = -Math.PI/3.2; b.position.set(x,4.6,1.8); g.add(b);
+    });
+    addPontoons(g, 2.8, 8.0);
+  }
+
+  else if (type === 'heli') {
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(1.3,3.4,6,10), M(0x3f4a3a));
+    body.rotation.z = Math.PI/2; body.position.y = 0; body.castShadow = true; g.add(body);
+    const cockpit = new THREE.Mesh(new THREE.SphereGeometry(1.2,10,8), M(glass,{transparent:true,opacity:0.75,roughness:0.1}));
+    cockpit.position.set(0,0,2.3); g.add(cockpit);
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,5), M(0x333a2f));
+    tail.position.set(0,0.4,-4); g.add(tail);
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.2,1.6,1.4), M(0x2b3027));
+    fin.position.set(0,1.2,-6.2); g.add(fin);
+    const rotor = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.1,13), M(0x1a1d20));
+    rotor.position.set(0,1.5,0); g.add(rotor);
+    rotor.name = 'rotor';
+    [-1.4,1.4].forEach(x=>{
+      const w = new THREE.Mesh(new THREE.BoxGeometry(3.2,0.2,0.9), M(0x2b3027));
+      w.position.set(x*0.5,-0.6,0.5); g.add(w);
+    });
+    const skid = new THREE.Mesh(new THREE.BoxGeometry(2,0.15,4), M(0x22262a));
+    skid.position.y = -1.6; g.add(skid);
+    g.add(makeMarker(color));
+  }
+
+  else if (type === 'fighter') {
+    const fus = new THREE.Mesh(new THREE.CylinderGeometry(0.7,1.0,9,10), M(0x6b7480,{metalness:0.6,roughness:0.35}));
+    fus.rotation.x = Math.PI/2; fus.castShadow = true; g.add(fus);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.7,3,10), M(0x5a626c,{metalness:0.6,roughness:0.3}));
+    nose.rotation.x = Math.PI/2; nose.position.set(0,0,6); g.add(nose);
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(13,0.3,3.4), M(0x5a626c,{metalness:0.5,roughness:0.4}));
+    wing.position.set(0,-0.1,-0.5); wing.castShadow = true; g.add(wing);
+    const vfin = new THREE.Mesh(new THREE.BoxGeometry(0.3,2.6,2.6), M(0x4a5260));
+    vfin.position.set(0,1.6,-3.6); g.add(vfin);
+    [-4.2,4.2].forEach(x=>{
+      const hfin = new THREE.Mesh(new THREE.BoxGeometry(3,0.25,1.6), M(0x4a5260));
+      hfin.position.set(x,-0.1,-3.6); g.add(hfin);
+    });
+    const cock = new THREE.Mesh(new THREE.SphereGeometry(0.9,10,8), M(glass,{transparent:true,opacity:0.7,roughness:0.1}));
+    cock.scale.set(1,0.7,1.6); cock.position.set(0,0.7,2.2); g.add(cock);
+    // 加力火焰（尾喷口）
+    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.45,1.8,8), basic(0xff5a1a,{transparent:true,opacity:0.7}));
+    exhaust.rotation.x = Math.PI/2; exhaust.position.set(0,0,-5.4); g.add(exhaust);
+    g.add(makeMarker(color));
+  }
+
+  else if (type === 'rocket') {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(4.2,2,10), M(0x5a5f3a));
+    base.position.y = 2.6; base.castShadow = true; g.add(base);
+    [[-1.9,2.8],[1.9,2.8],[-1.9,-2.8],[1.9,-2.8]].forEach(([x,z])=>{
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,0.7,10), M(0x1c1f22));
+      w.rotation.z = Math.PI/2; w.position.set(x,1,z); g.add(w);
+    });
+    // 发射箱（多管火箭用）
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(3.8,2.2,5.5), M(color));
+    pod.position.set(0,3.6,-1.5); g.add(pod);
+    // 发射管列
+    for (let row=0;row<2;row++) for(let col=0;col<3;col++) {
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,2.5,6), M(0x2b3027));
+      tube.rotation.x = Math.PI/2; tube.position.set(-1.1+col*1.1, 3.0+row*0.5, 0.8); g.add(tube);
+    }
+    addPontoons(g, 3.0, 10.4);
+  }
+
+  else if (type === 'sam') {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(4.2,2,9), M(0x5b6845));
+    base.position.y = 2.4; base.castShadow = true; g.add(base);
+    [[-2.0,2.6],[2.0,2.6],[-2.0,-2.6],[2.0,-2.6]].forEach(([x,z])=>{
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,0.7,10), M(0x1c1f22));
+      w.rotation.z = Math.PI/2; w.position.set(x,1,z); g.add(w);
+    });
+    const mount = new THREE.Mesh(new THREE.BoxGeometry(3.2,1.8,3.2), M(color));
+    mount.position.set(0,3.9,0); g.add(mount);
+    // 雷达天线
+    const radar = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.15,2.4), M(0x3a5a3a));
+    radar.position.set(0,5.1,0); g.add(radar);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2.2,6), M(0x2b3037));
+    pole.position.set(0,4.4,0); g.add(pole);
+    // 导弹发射筒（倾斜）
+    [-0.8,0.8].forEach(x=>{
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,5.5,6), M(0x3a4a2a));
+      tube.rotation.x = -Math.PI/4; tube.position.set(x,5.4,0.8); g.add(tube);
+    });
+    addPontoons(g, 3.0, 9.6);
+  }
+
+  else if (type === 'bomber') {
+    const fus = new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.6,15,12), M(0x5a6470,{metalness:0.5,roughness:0.4}));
+    fus.rotation.x = Math.PI/2; fus.castShadow = true; g.add(fus);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(1.3,4,12), M(0x4a545f));
+    nose.rotation.x = Math.PI/2; nose.position.set(0,0,9.5); g.add(nose);
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(24,0.5,5), M(0x4a545f,{metalness:0.5,roughness:0.4}));
+    wing.position.set(0,0,-0.5); wing.castShadow = true; g.add(wing);
+    const vfin = new THREE.Mesh(new THREE.BoxGeometry(0.4,4,4), M(0x3f4852));
+    vfin.position.set(0,2.6,-6.5); g.add(vfin);
+    [-5.5,5.5].forEach(x=>{
+      const e = new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,3.4,8), M(0x2b3037));
+      e.rotation.x = Math.PI/2; e.position.set(x,-0.6,-1); g.add(e);
+    });
+    g.add(makeMarker(color));
+  }
+
+  else if (type === 'warship') {
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(6.5,3,30), M(0x50606e,{metalness:0.4,roughness:0.5}));
+    hull.position.y = 1.8; hull.castShadow = true; g.add(hull);
+    const bow = new THREE.Mesh(new THREE.ConeGeometry(3.25,6,4), M(0x475663,{metalness:0.4}));
+    bow.rotation.y = Math.PI/4; bow.rotation.x = -Math.PI/2; bow.position.set(0,1.8,17); g.add(bow);
+    const sup = new THREE.Mesh(new THREE.BoxGeometry(4.6,3.4,8), M(0x76858f));
+    sup.position.set(0,5,-1); sup.castShadow = true; g.add(sup);
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(3.6,2,3.4), M(0x8b98a2));
+    bridge.position.set(0,7.5,0); g.add(bridge);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,6,6), M(0x2b3037));
+    mast.position.set(0,11,-1); g.add(mast);
+    const gunTurret = new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.8,1.6,10), M(color));
+    gunTurret.position.set(0,3.6,10); g.add(gunTurret);
+    const gunB = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,5,8), M(0x2b3037));
+    gunB.rotation.x = Math.PI/2; gunB.position.set(0,3.9,13); g.add(gunB);
+    const t2 = new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.4,1.4,10), M(color));
+    t2.position.set(0,3.4,-12); g.add(t2);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(6.7,0.6,30), M(color));
+    stripe.position.y = 3.1; g.add(stripe);
+    g.add(makeMarker(color));
+  }
+
+  else if (type === 'submarine') {
+    const hull = new THREE.Mesh(new THREE.CapsuleGeometry(1.8,16,8,14), M(0x2b3540,{metalness:0.5,roughness:0.5,transparent:true,opacity:0.92}));
+    hull.rotation.x = Math.PI/2; hull.castShadow = true; g.add(hull);
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(2,3,4), M(0x333f4b));
+    tower.position.set(0,1.6,0); g.add(tower);
+    const periscope = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,3,6), M(0x1a1f24));
+    periscope.position.set(0,4,0); g.add(periscope);
+    [-1,1].forEach(s=>{
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.3,2.4,2.4), M(0x1f272e));
+      fin.position.set(0,1.2,-8.5*s); g.add(fin);
+    });
+    g.add(makeMarker(0x22c55e));
+  }
+
+  return g;
+}
+
+function makeMarker(color) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.55,8,6), basic(color));
+  m.position.y = 2.2;
+  m.name = 'marker';
+  return m;
+}
+
+// ============================================================
+//  单位类
+// ============================================================
+let unitId = 0;
+class Unit {
+  constructor(type, faction) {
+    this.id = ++unitId;
+    this.type = type;
+    this.def = DEFS[type];
+    this.faction = faction;
+    this.hp = this.def.hp;
+    this.maxHp = this.def.hp;
+    this.cd = Math.random()*this.def.cd;
+    this.dead = false;
+    this.target = null;
+    this.state = '布阵';
+    this.slot = new THREE.Vector3();
+    this.slotAlt = GROUND_Y;
+    this.homeIsland = null;   // 驻岛单位：限制在该小岛范围内活动
+    this.commander = null;    // 当前隶属的 AI 指挥员
+    this.cmdTask = null;      // 当前任务 {kind,targetPos,focusUnit,priority,until}
+    this.lockT = 0;           // 目标锁定到期时间
+
+    this.mesh = buildModel(type, faction.color);
+    scene.add(this.mesh);
+
+    this.bar = makeHealthBar(faction.color);
+
+    this.altitude = this.def.alt || 0;
+    if (this.type === 'submarine') this.altitude = -1.2;
+    this.naval = this.def.domain === 'naval';
+    this.air = this.def.domain === 'air';
+    this._inWater = false;      // 陆地单位是否正在涉水/泅渡
+    this.wakeEl = null;
+    this.flashTimer = 0;
+
+    this.rotor = this.mesh.getObjectByName('rotor');
+    this.pontoons = [];
+    this.mesh.traverse(o=>{ if (o.name==='pontoon') this.pontoons.push(o); });
+
+    // 视野环（上帝视角可切换显示）
+    this.visionRing = new THREE.Mesh(visionRingGeo, faction.visionMat);
+    this.visionRing.rotation.x = -Math.PI/2;
+    this.visionRing.scale.setScalar(this.def.vision);
+    this.visionRing.position.set(this.pos.x, GROUND_Y+0.6, this.pos.z);
+    this.visionRing.visible = false;
+    scene.add(this.visionRing);
+  }
+
+  get pos(){ return this._pos || (this._pos = new THREE.Vector3()); }
+
+  // ---- 目标获取：只在视野内开火 ----
+  // ---- 目标获取：效用评分 + 粘性 + 集火协调 ----
+  acquireTarget() {
+    const maxD = this.def.vision * 2.2;
+    const old = this.target;
+    // 粘性：当前目标仍有效就保留一段时间，避免频繁换目标
+    if (old && !old.dead && this.canAttack(old) && this.pos.distanceTo(old.pos) < maxD && this.hasLOS(old)) {
+      if (!this.lockT || simTime < this.lockT) return;
+    }
+    this.lockT = simTime + 1.0;
+
+    const candidates = [];
+    for (const f of factions) {
+      if (f === this.faction) continue;
+      for (const u of f.units) {
+        if (u.dead) continue;
+        const d = this.pos.distanceTo(u.pos);
+        if (d > maxD) continue;
+        if (!this.canAttack(u)) continue;
+        if (!this.hasLOS(u)) continue;
+        candidates.push({ u, d });
+      }
+    }
+    if (!candidates.length) { this.target = null; return; }
+
+    let best = null, bestScore = -Infinity;
+    for (const { u, d } of candidates) {
+      const score = this.evaluateTarget(u, d);
+      if (score > bestScore) { bestScore = score; best = u; }
+    }
+    if (best) this.target = best;
+  }
+
+  evaluateTarget(u, d) {
+    const range = Math.max(1, this.def.range);
+    const distScore = d <= range ? 1.0 : range / d;
+    const dps = u.def.dmg / Math.max(u.def.cd, 0.5);
+    const threatScore = Math.min(2, dps / (d * 0.008 + 1));
+    const hpRatio = Math.max(0, u.hp / u.maxHp);
+    const hpScore = 1 - hpRatio * 0.85;
+    const incoming = incomingDamage.get(u.id) || 0;
+    let overkill = 1.0;
+    if (incoming > u.hp * 1.4) overkill = 0.25;
+    else if (incoming > u.hp * 0.85) overkill = 0.55;
+    else if (incoming > u.hp * 0.4) overkill = 0.85;
+    let typeScore = 0;
+    if ((this.type==='aa' || this.type==='sam') && u.def.domain==='air') {
+      typeScore = u.type==='bomber'?0.6 : u.type==='fighter'?0.4 : 0.25;
+    }
+    if (this.type==='fighter' && u.def.domain==='air') {
+      typeScore = u.type==='bomber'?0.5 : 0.25;
+    }
+    if (this.type==='bomber' && u.def.domain==='land') typeScore = 0.2;
+    return distScore * 2.0 + threatScore * 1.2 + hpScore * 1.8 + typeScore + overkill;
+  }
+  isBlockedByTerrain(target) {
+    const ay = this.mesh.position.y + 2, by = target.mesh.position.y + 2;
+    for (const b of coverBlockers) {
+      if (segCircle(this.pos.x,this.pos.z, target.pos.x,target.pos.z, b.x,b.z,b.r)) {
+        if (b.h > ay && b.h > by) return true;
+      }
+    }
+    return false;
+  }
+
+  // 高度差惩罚：目标比射击者高得越多（相对距离），越难命中
+  // altLOSFactor: 0.0=完全看不见（超出最大仰角），1.0=无惩罚
+  hasLOS(t) {
+    const dy = (t.mesh.position.y + 2) - (this.mesh.position.y + this.muzzleY());
+    const dist = this.pos.distanceTo(t.pos);
+    // 最大允许仰角 ~75°（tan(75°)=3.73）
+    const maxDy = dist * 3.5;
+    if (dy > maxDy) return false;
+    // 地形遮挡（高山/碉堡）
+    if (this.isBlockedByTerrain(t)) return false;
+    // 近距离可直射；远距离仰角限制更严
+    const penalty = dist > 120 ? (dy / maxDy) : 0;
+    return Math.random() > penalty * 0.4;
+  }
+
+  canAttack(t){
+    const td = t.def.domain;
+    // 防空车/防空弹/战斗机：只打空中目标
+    if (this.type==='aa' || this.type==='sam' || this.type==='fighter') return td==='air';
+    // 地对地：步兵/坦克/火炮/火箭炮/轰炸机不攻击空中目标
+    if (td==='air') return false;
+    return this.def.targets.includes(td);
+  }
+
+  _scan(pred, maxD) {
+    let best = null, bestD = maxD===Infinity ? Infinity : maxD*maxD;
+    for (const f of factions) {
+      if (f === this.faction) continue;
+      for (const u of f.units) {
+        if (u.dead) continue;
+        if (!pred(u)) continue;
+        const d = this.pos.distanceToSquared(u.pos);
+        if (d < bestD) { bestD = d; best = u; }
+      }
+    }
+    return best;
+  }
+
+  // ---- 目标点：优先执行 AI 指挥员分配的任务，其次 fallback 到阵营战略 ----
+  objectivePos() {
+    const f = this.faction;
+    // 指挥员实时任务：若任务未过期且未抵达，以任务点为目标
+    if (this.cmdTask && this.cmdTask.targetPos) {
+      return this.cmdTask.targetPos.clone();
+    }
+    if (!f.focus) return f.basePos.clone();
+    let t;
+    if (f.stance==='defend') t = f.basePos.clone();
+    else if (f.stance==='attack') t = f.focus.basePos.clone();
+    else t = f.basePos.clone().lerp(f.focus.basePos, 0.5);
+
+    // 偷袭：派步兵/坦克绕侧翼
+    if (f.sneak && this.def.domain==='land' && (this.type==='infantry'||this.type==='tank')) {
+      const ang = f.baseAngle;
+      const lx = -Math.sin(ang), lz = Math.cos(ang);
+      const side = (this.id % 2 ? 1 : -1);
+      t.x += lx*ISLAND_R*0.38*side;
+      t.z += lz*ISLAND_R*0.38*side;
+    }
+
+    // 防空单位：驻守在主力部队前方（约40%处）
+    if ((this.type==='sam' || this.type==='aa') && f.stance==='attack') {
+      t = f.basePos.clone().lerp(f.focus.basePos, 0.4);
+    }
+    // 远程火力：保持靠后，不要冲最前
+    if (this.type==='artillery' || this.type==='rocket') {
+      t = f.basePos.clone().lerp(f.focus.basePos, 0.2);
+    }
+    // 轰炸机：绕飞到敌侧后方
+    if (this.def.domain==='air' && this.type==='bomber') {
+      const ang = f.baseAngle + Math.PI * 0.6;
+      t = new THREE.Vector3(Math.cos(ang)*ISLAND_R*0.5, t.y||0, Math.sin(ang)*ISLAND_R*0.5);
+    }
+    return t;
+  }
+
+  stanceStop(){
+    const s = this.faction.stance;
+    return s==='defend' ? 5 : s==='balanced' ? 14 : 22;
+  }
+
+  update(dt) {
+    if (this.dead) return;
+    this.cd -= dt;
+    this.acquireTarget();
+
+    if (phase !== 'battle') { this.syncMesh(); return; }
+
+    const t = this.target;
+    if (t && !t.dead) {
+      const dist = this.pos.distanceTo(t.pos);
+      this.face(t.pos, dt);
+      if (dist > this.def.range*0.88) {
+        // 在射程外 → 全速追击
+        this.state = '接敌';
+        this.moveToward(t.pos, dt, this.def.range*0.88);
+      } else {
+        // 在射程内 → 根据兵种决定推进、风筝、撤退或找掩护
+        this.state = '交战';
+        this.combatManeuver(t, dt);
+        if (this.cd <= 0) { this.fire(t); this.cd = this.def.cd; }
+      }
+    } else {
+      // 无目标 → 找最近敌人追上去（扩大搜索半径）
+      const nearest = this._scan(u => this.canAttack(u) && this.hasLOS(u), this.def.vision * 2.2);
+      if (nearest) {
+        this.state = '行军';
+        const stop = Math.max(5, this.def.range * 0.6);
+        this.moveToward(nearest.pos, dt, stop);
+        this.face(nearest.pos, dt);
+      } else {
+        // 全图无目标 → 按指挥员任务前进
+        const obj = this.objectivePos();
+        let stop = this.stanceStop();
+        // 远程火力/轰炸机在任务点附近停下开火；包抄部队贴近目标
+        if (this.cmdTask) {
+          if (this.type==='artillery' || this.type==='rocket' || this.type==='bomber') stop = Math.max(40, this.def.range * 0.7);
+          else if (this.cmdTask.kind === 'flank') stop = 12;
+          else if (this.cmdTask.kind === 'hold') stop = 18;
+        }
+        const moved = this.moveToward(obj, dt, stop);
+        this.state = moved ? '行军' : '驻守';
+        if (moved) this.face(obj, dt);
+      }
+    }
+    // 任务过期清理
+    if (this.cmdTask && this.cmdTask.until <= simTime) { this.cmdTask = null; this.commander = null; }
+    this.syncMesh();
+  }
+
+  // ---- 交战机动：推进 / 风筝 / 找掩护 / 撤退 ----
+  combatManeuver(t, dt) {
+    const dist = this.pos.distanceTo(t.pos);
+    const hpRatio = this.hp / this.maxHp;
+    const isRanged = (this.type==='artillery' || this.type==='rocket' || this.type==='aa' || this.type==='sam' || this.type==='tank');
+
+    // 1) 重伤撤退
+    if (hpRatio < 0.28 && dist < this.def.range * 0.9) {
+      this.state = '撤退';
+      const away = this.pos.clone().sub(t.pos).normalize().multiplyScalar(this.def.range * 1.05);
+      const dest = this.pos.clone().add(away);
+      const savedSpeed = this.def.speed;
+      this.def.speed = savedSpeed * 0.75;
+      this.moveToward(this.avoidWaterDest(dest), dt, 2);
+      this.def.speed = savedSpeed;
+      this.face(t.pos, dt);
+      return;
+    }
+
+    // 2) 远程风筝：保持距离优势
+    if (isRanged && dist < this.def.range * 0.55 && hpRatio < 0.7) {
+      this.state = '风筝';
+      const away = this.pos.clone().sub(t.pos).normalize().multiplyScalar(this.def.range * 0.8);
+      const dest = this.pos.clone().add(away);
+      const savedSpeed = this.def.speed;
+      this.def.speed = savedSpeed * 0.55;
+      this.moveToward(this.avoidWaterDest(dest), dt, 4);
+      this.def.speed = savedSpeed;
+      this.face(t.pos, dt);
+      return;
+    }
+
+    // 3) 找掩护
+    if ((this.type==='infantry' || this.type==='tank') && hpRatio < 0.55 && dist < this.def.range * 0.75) {
+      const cover = this.findNearestCover(t.pos);
+      if (cover && this.pos.distanceTo(cover) < this.def.range * 1.0) {
+        this.state = '掩蔽';
+        this.moveToward(cover, dt, 6);
+        this.face(t.pos, dt);
+        return;
+      }
+    }
+
+    // 4) 默认缓慢推进
+    const pushStop = Math.max(4, this.def.range * 0.48);
+    const savedSpeed = this.def.speed;
+    this.def.speed = savedSpeed * 0.42;
+    this.moveToward(t.pos, dt, pushStop);
+    this.def.speed = savedSpeed;
+    this.face(t.pos, dt);
+  }
+
+  // 撤退/风筝目的地修正：陆地单位不主动逃进水里（残血下海=被白打）
+  // 已在水中则不限制（先上岸再说）；否则绕原方向两侧各转 60°/120° 找干地
+  avoidWaterDest(dest) {
+    if (this.def.domain !== 'land' || this._inWater) return dest;
+    if (!isWaterAt(dest.x, dest.z)) return dest;
+    const ox = dest.x - this.pos.x, oz = dest.z - this.pos.z;
+    for (const ang of [Math.PI/3, -Math.PI/3, 2*Math.PI/3, -2*Math.PI/3]) {
+      const c = Math.cos(ang), s = Math.sin(ang);
+      const nx = this.pos.x + ox*c - oz*s, nz = this.pos.z + ox*s + oz*c;
+      if (!isWaterAt(nx, nz)) return new THREE.Vector3(nx, 0, nz);
+    }
+    return this.pos.clone();   // 四面环水就不动，原地挨打也比下海强
+  }
+
+  findNearestCover(enemyPos) {
+    let best = null, bestScore = -Infinity;
+    for (const b of coverBlockers) {
+      if (b.type!=='bunker') continue;
+      const bp = new THREE.Vector3(b.x, 0, b.z);
+      const d = this.pos.distanceTo(bp);
+      if (d > this.def.range * 1.3) continue;
+      const toB = bp.clone().sub(this.pos);
+      const toE = enemyPos.clone().sub(this.pos);
+      const alignment = toB.dot(toE) / (toB.length()*toE.length()+0.001);
+      if (alignment > 0.25) continue;
+      const score = 1/(d+1) - alignment;
+      if (score > bestScore) { bestScore = score; best = new THREE.Vector3(b.x, GROUND_Y, b.z); }
+    }
+    for (const tr of trenches) {
+      const bp = new THREE.Vector3(tr.x, 0, tr.z);
+      const d = this.pos.distanceTo(bp);
+      if (d > this.def.range * 1.3) continue;
+      const toB = bp.clone().sub(this.pos);
+      const toE = enemyPos.clone().sub(this.pos);
+      const alignment = toB.dot(toE) / (toB.length()*toE.length()+0.001);
+      if (alignment > 0.3) continue;
+      const score = 1/(d+1) - alignment * 0.5;
+      if (score > bestScore) { bestScore = score; best = new THREE.Vector3(tr.x, GROUND_Y, tr.z); }
+    }
+    return best;
+  }
+
+  // 朝目标点旋转（仅改变朝向，不移动位置）
+  face(p, dt){
+    const dx = p.x - this.pos.x, dz = p.z - this.pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1) return;
+    const targetAngle = Math.atan2(dx, dz);
+    let cur = this.mesh.rotation.y;
+    let diff = targetAngle - cur;
+    while (diff > Math.PI) diff -= Math.PI*2;
+    while (diff < -Math.PI) diff += Math.PI*2;
+    const turnSpeed = 5;
+    this.mesh.rotation.y += Math.sign(diff) * Math.min(Math.abs(diff), turnSpeed * dt);
+  }
+
+  // 朝目标点移动，到达 stopDistance 时停下；返回 true 表示仍在移动
+  moveToward(p, dt, stopDistance) {
+    p = routeViaBridge(this, p);   // 过河优先走桥
+    const dx = p.x - this.pos.x, dz = p.z - this.pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d <= stopDistance) return false;
+    // 涉水/泅渡减速：步兵会游泳稍快，车辆挂浮筒浮渡（比原来快些，仍比陆行慢）
+    let sp = this.def.speed;
+    if (this.def.domain === 'land' && this._inWater) {
+      sp *= this.type === 'infantry' ? 0.6 : 0.55;
+    }
+    const step = Math.min(sp * dt, d - stopDistance);
+    this.pos.x += (dx / d) * step;
+    this.pos.z += (dz / d) * step;
+    this.constrainDomain();
+    return true;
+  }
+
+  syncMesh(){
+    this.mesh.position.x = this.pos.x;
+    this.mesh.position.z = this.pos.z;
+    // 每帧刷新涉水状态（供减速、贴水面、航迹使用）；桥面上不算涉水
+    const onBr = (this.def.domain==='land' && !this.homeIsland) ? bridgeAt(this.pos.x, this.pos.z) : null;
+    this._inWater = this.def.domain==='land' && !this.homeIsland && !onBr && !!isWaterAt(this.pos.x, this.pos.z);
+    for (const p of this.pontoons) p.visible = this._inWater;
+    if (this.air) {
+      this.mesh.position.y = this.altitude + Math.sin(performance.now()*0.002 + this.id)*2.5;
+    } else if (this.type==='submarine') {
+      this.mesh.position.y = this.altitude + Math.sin(performance.now()*0.001 + this.id)*0.6;
+    } else if (this.naval) {
+      this.mesh.position.y = -1.0 + Math.sin(performance.now()*0.0015 + this.id)*0.4;
+    } else if (onBr) {
+      // 桥面上：走桥面高度，不涉水
+      this.mesh.position.y = 1.2;
+    } else {
+      // 陆地单位：贴地形；涉水/泅渡时浮在水面附近（河道水面高、海面低，分开处理）
+      if (this._inWater) {
+        const th = terrainHeight(this.pos.x, this.pos.z);
+        const waterY = inWaterway(this.pos.x, this.pos.z) ? -0.25 : -1.15;
+        this.mesh.position.y = Math.max(th, waterY);
+      } else {
+        this.mesh.position.y = terrainHeight(this.pos.x, this.pos.z);
+      }
+    }
+    if (this.rotor) this.rotor.rotation.y += 0.6;
+
+    if (this.bar) {
+      this.bar.group.position.set(this.pos.x, this.mesh.position.y + this.barOffset(), this.pos.z);
+      this.bar.group.quaternion.copy(camera.quaternion);
+      const ratio = Math.max(0, this.hp/this.maxHp);
+      setBarFill(this.bar, ratio);
+      this.bar.group.visible = ratio < 1;
+    }
+    if (this.visionRing) {
+      this.visionRing.position.set(this.pos.x, terrainHeight(this.pos.x,this.pos.z)+0.6, this.pos.z);
+      this.visionRing.visible = visionOn && !this.dead;
+    }
+    // 舰艇航迹 / 泅渡水花
+    if ((this.naval || this._inWater) && !this.wakeEl) {
+      const wGeo = new THREE.RingGeometry(0.5, 3.5, 16);
+      wGeo.rotateX(-Math.PI/2);
+      this.wakeEl = new THREE.Mesh(wGeo, basic(this.faction.color,{transparent:true,opacity:0.18,side:THREE.DoubleSide}));
+      scene.add(this.wakeEl);
+    }
+    if ((this.naval || this._inWater) && this.wakeEl) {
+      this.wakeEl.visible = true;
+      const wakeY = this.naval ? -1.3 : (inWaterway(this.pos.x, this.pos.z) ? 0.1 : -1.35);
+      this.wakeEl.position.set(this.pos.x, wakeY, this.pos.z);
+      this.wakeEl.material.opacity = 0.12 + Math.sin(simTime*2.5 + this.id)*0.08;
+      this.wakeEl.scale.setScalar(1 + Math.sin(simTime + this.id*1.3)*0.15);
+    } else if (this.wakeEl) {
+      this.wakeEl.visible = false;
+    }
+    // 受击闪白（视觉反馈）
+    if (this.flashTimer > 0) {
+      this.flashTimer -= 0.016;
+      this.mesh.traverse(c=>{
+        if (c.isMesh && c.material && c.material.emissive) {
+          c.material.emissive.setHex(0xffffff);
+          c.material.emissiveIntensity = this.flashTimer / 0.18;
+        }
+      });
+    } else {
+      this.mesh.traverse(c=>{
+        if (c.isMesh && c.material && c.material.emissive) {
+          c.material.emissiveIntensity = 0;
+        }
+      });
+    }
+  }
+
+  barOffset() { return this.type==='infantry' ? 6 : this.def.domain==='naval' ? 8 : this.def.domain==='air' ? 4 : 6; }
+
+  constrainDomain() {
+    if (this.def.domain === 'land') {
+      // 驻岛单位：限制在该小岛范围内（不漂回主岛）
+      if (this.homeIsland) {
+        const dx = this.pos.x - this.homeIsland.x;
+        const dz = this.pos.z - this.homeIsland.z;
+        const d = Math.hypot(dx, dz);
+        const maxR = this.homeIsland.r * 0.82;
+        if (d > maxR) { const k = maxR / Math.max(d, 0.01); this.pos.x = this.homeIsland.x + dx*k; this.pos.z = this.homeIsland.z + dz*k; }
+        return;
+      }
+      const r = Math.hypot(this.pos.x, this.pos.z);
+      // 允许下海泅渡 / 登陆小岛，但不许漂出外海作战半径
+      if (r > NAVAL_OUT) { const k=NAVAL_OUT/r; this.pos.x*=k; this.pos.z*=k; }
+      // 高山不可通行
+      for (const b of coverBlockers) {
+        if (b.type!=='mountain') continue;
+        const d = Math.hypot(this.pos.x-b.x, this.pos.z-b.z);
+        if (d < b.r) { const k=(b.r+1)/Math.max(d,0.01); this.pos.x=b.x+(this.pos.x-b.x)*k; this.pos.z=b.z+(this.pos.z-b.z)*k; }
+      }
+      // 河道与海域均可涉水通过（减速由 moveToward 按 _inWater 处理），不再硬阻挡
+    } else if (this.def.domain === 'naval') {
+      const r = Math.hypot(this.pos.x, this.pos.z);
+      if (r < NAVAL_IN) { const k=NAVAL_IN/r; this.pos.x*=k; this.pos.z*=k; }
+      if (r > NAVAL_OUT) { const k=NAVAL_OUT/r; this.pos.x*=k; this.pos.z*=k; }
+    } else {
+      const r = Math.hypot(this.pos.x, this.pos.z);
+      if (r > MAP_HALF) { const k=MAP_HALF/r; this.pos.x*=k; this.pos.z*=k; }
+    }
+  }
+
+  fire(t) {
+    // 记录预订伤害，供集火协调使用
+    incomingDamage.set(t.id, (incomingDamage.get(t.id) || 0) + this.def.dmg);
+    const w = this.def.weapon;
+    const from = new THREE.Vector3(this.pos.x, this.mesh.position.y + this.muzzleY(), this.pos.z);
+    const to   = new THREE.Vector3(t.pos.x, t.mesh.position.y + 2, t.pos.z);
+    const dmg  = this.def.dmg * (0.85 + Math.random()*0.3);
+
+    let p;
+    if (w === 'gun')       p = new Projectile('tracer', from, to, dmg, t, this, 420, 2);
+    else if (w === 'shell'){ p = new Projectile('shell', from, to, dmg, t, this, 190, 9, 0.6);
+      if (this.type==='warship'||this.type==='artillery') gunFlash(from, this.faction.color); }
+    else if (w === 'rocket') { p = new Projectile('rocket', from, to, dmg, t, this, 160, 18, 1.2); }
+    else if (w === 'sam')    { p = new Projectile('sam', from, to, dmg, t, this, 340, 8); }
+    else if (w === 'missile') p = new Projectile('missile', from, to, dmg, t, this, 300, 5);
+    else if (w === 'bomb')    p = new Projectile('bomb', from, to, dmg, t, this, 160, 26);
+    else if (w === 'torpedo') {
+      const f = new THREE.Vector3(this.pos.x, 0.5, this.pos.z);
+      const tp = new THREE.Vector3(t.pos.x, 0.5, t.pos.z);
+      p = new Projectile('torpedo', f, tp, dmg, t, this, 150, 4);
+    }
+    if (p) { projectiles.push(p); SFX.weapon(w, from); }
+  }
+
+  muzzleY() {
+    const m = { infantry:2.6, tank:4.0, artillery:6.5, rocket:5.8, sam:5.2, aa:4.6, heli:-0.5, fighter:0, bomber:0, warship:3.9, submarine:2 };
+    return m[this.type] ?? 2;
+  }
+
+  takeDamage(amount, source) {
+    if (this.dead) return;
+    const cf = source ? coverFactor(this, source) : 1;
+    const dmg = amount * cf;
+    this.hp -= dmg;
+    this.flashTimer = 0.18;  // 受击闪白
+    spawnDamageNum(this.pos, Math.round(dmg), this.faction.color);
+    spawnAim(this.pos, source ? source.faction.color : 0xffffff);
+    if (this.hp <= 0) this.die(source);
+  }
+
+  die(source) {
+    this.dead = true;
+    if (this.bar) scene.remove(this.bar.group);
+    if (this.visionRing) scene.remove(this.visionRing);
+    if (this.wakeEl) scene.remove(this.wakeEl);
+    if (selectedUnit === this) { selectedUnit = null; renderInspector(); }
+    totalKills++;
+    if (source) spawnKill(source.faction, this.faction, source.def.name, this.def.name);
+    const y = this.mesh.position.y;
+    explosion(this.pos.clone().setY(Math.max(0,y)), this.def.domain==='air'?22:this.type==='warship'||this.type==='submarine'?30:14, false, true);
+    scene.remove(this.mesh);
+    // 击杀后屏幕微震
+    screenShake.mag = Math.max(screenShake.mag, this.def.domain==='naval'?4:2.5);
+  }
+}
+
+// ---- 血条工具（每根独立材质，血条颜色=阵营颜色） ----
+function makeHealthBar(factionColor) {
+  const group = new THREE.Group();
+  const W = 7, H = 0.9;
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(W, H), basic(0x111417,{transparent:true,opacity:0.75}));
+  group.add(bg);
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(W, H*0.72),
+    new THREE.MeshBasicMaterial({ color: factionColor }));
+  fill.position.z = 0.05;
+  group.add(fill);
+  group.visible = false;
+  scene.add(group);
+  return { group, fill, W, factionColor };
+}
+function setBarFill(bar, ratio) {
+  bar.fill.scale.x = Math.max(0.001, ratio);
+  bar.fill.position.x = -(bar.W * (1-ratio)) / 2;
+  // 低血量时叠加红晕（背景框透出来）
+  const facCol = bar.factionColor;
+  if (ratio <= 0.25) {
+    bar.fill.material.color.setHex(0xef4444);
+  } else if (ratio <= 0.5) {
+    bar.fill.material.color.setHex(0xfbbf24);
+  } else {
+    bar.fill.material.color.setHex(facCol);
+  }
+}
+
+// ============================================================
+//  弹道
+// ============================================================
+class Projectile {
+  constructor(kind, from, to, dmg, target, owner, speed, aoe, arc=0) {
+    this.kind = kind; this.dmg = dmg; this.target = target; this.owner = owner;
+    this.aoe = aoe; this.speed = speed; this.arc = arc;
+    this.from = from.clone(); this.to = to.clone();
+    this.dist = from.distanceTo(to);
+    this.t = 0; this.dur = Math.max(0.05, this.dist/speed); this.dead = false;
+    this.smoke = [];  // 烟雾拖尾数组
+
+    let geo, col;
+    if (kind==='tracer')      { geo = new THREE.SphereGeometry(0.45,6,5); col = 0xfff2a0; }
+    else if (kind==='shell')  { geo = new THREE.SphereGeometry(0.7,8,6);  col = 0xffb347; }
+    else if (kind==='rocket') { geo = new THREE.CylinderGeometry(0.22,0.22,3.5,6); col = 0x7a8a6a; }
+    else if (kind==='sam')    { geo = new THREE.CylinderGeometry(0.18,0.18,4,6); col = 0xddeeff; }
+    else if (kind==='missile'){ geo = new THREE.CylinderGeometry(0.25,0.25,3,6); col = 0xdddddd; }
+    else if (kind==='bomb')   { geo = new THREE.SphereGeometry(0.9,8,6);  col = 0x8a8f96; }
+    else                      { geo = new THREE.CylinderGeometry(0.4,0.4,3,6); col = 0x2f6f4f; }
+    this.mesh = new THREE.Mesh(geo, basic(col));
+    this.mesh.position.copy(from);
+    scene.add(this.mesh);
+
+    if (kind==='missile'||kind==='sam') {
+      this.flame = new THREE.Mesh(new THREE.SphereGeometry(0.6,6,5), basic(0xff7a1a,{transparent:true,opacity:0.85}));
+      scene.add(this.flame);
+    }
+    if (kind==='rocket') {
+      this.flame = new THREE.Mesh(new THREE.SphereGeometry(0.5,6,5), basic(0xffcc44,{transparent:true,opacity:0.9}));
+      scene.add(this.flame);
+    }
+  }
+
+  update(dt) {
+    if (this.dead) return;
+    this.t += dt/this.dur;
+    const k = Math.min(1, this.t);
+    if ((this.kind==='missile'||this.kind==='sam'||this.kind==='rocket'||this.kind==='tracer') && this.target && !this.target.dead) {
+      this.to.set(this.target.pos.x, this.target.mesh.position.y+2, this.target.pos.z);
+    }
+    const p = this.from.clone().lerp(this.to, k);
+    if (this.arc > 0) p.y += Math.sin(k*Math.PI) * this.arc * (this.dist/40);
+
+    // 烟雾拖尾（火箭/导弹每帧生成）
+    if ((this.kind==='rocket'||this.kind==='sam'||this.kind==='missile') && this.t < 0.95) {
+      if (Math.random() > 0.4) {
+        const s = new THREE.Mesh(new THREE.SphereGeometry(0.6+Math.random()*0.4,5,4),
+          basic(0xaaaaaa,{transparent:true,opacity:0.55}));
+        s.position.copy(p);
+        scene.add(s);
+        this.smoke.push({ mesh:s, life:0.5, max:0.5 });
+      }
+    }
+    // 更新烟雾粒子
+    for (let i=this.smoke.length-1;i>=0;i--) {
+      const s = this.smoke[i];
+      s.life -= dt;
+      s.mesh.material.opacity = (s.life/s.max)*0.55;
+      s.mesh.scale.setScalar(1 + (1-s.life/s.max)*1.2);
+      if (s.life <= 0) { scene.remove(s.mesh); this.smoke.splice(i,1); }
+    }
+
+    this.mesh.position.copy(p);
+    if (this.kind==='missile'||this.kind==='sam') {
+      this.mesh.lookAt(this.to);
+      this.flame.position.copy(p);
+      this.flame.scale.setScalar(0.5+Math.random()*0.7);
+    }
+    if (this.kind==='rocket') {
+      this.mesh.lookAt(this.to);
+      this.flame.position.copy(p);
+      this.flame.scale.setScalar(0.4+Math.random()*0.5);
+    }
+    if (k >= 1) this.impact();
+  }
+
+  impact() {
+    this.dead = true;
+    scene.remove(this.mesh);
+    if (this.flame) scene.remove(this.flame);
+    // 清除烟雾
+    this.smoke.forEach(s=>scene.remove(s.mesh));
+    this.smoke = [];
+    const hitPos = this.to.clone();
+    const y = this.target ? this.target.mesh.position.y : hitPos.y;
+    hitPos.y = Math.max(0, this.owner.def.domain==='air'? y : hitPos.y);
+
+    if (this.target && !this.target.dead) {
+      this.target.takeDamage(this.dmg, this.owner);
+      const cur = incomingDamage.get(this.target.id) || 0;
+      if (cur > this.dmg) incomingDamage.set(this.target.id, cur - this.dmg);
+      else incomingDamage.delete(this.target.id);
+    }
+
+    if (this.aoe > 0) {
+      explosion(hitPos, this.kind==='bomb'?30:this.aoe, this.kind==='rocket'||this.kind==='sam');
+      for (const f of factions) {
+        if (f===this.owner.faction) continue;
+        for (const u of f.units) {
+          if (u.dead || u===this.target) continue;
+          if (u.pos.distanceTo(hitPos) < this.aoe) u.takeDamage(this.dmg*0.45, this.owner);
+        }
+      }
+    } else {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(1.4,8,6), basic(0xfff0a0,{transparent:true,opacity:0.9}));
+      s.position.copy(hitPos); scene.add(s);
+      fxList.push({ mesh:s, life:0.18, max:0.18, type:'spark' });
+    }
+  }
+}
+
+// ============================================================
+//  特效
+// ============================================================
+function explosion(pos, size, hasSmoke=false, isDeath=false) {
+  if (size <= 3) SFX.hit(pos); else SFX.boom(size, pos);
+  // 屏幕震（死亡爆炸稍大一些）
+  if (isDeath) screenShake.mag = Math.max(screenShake.mag, size*0.12);
+  // 爆炸波及桥梁（桥可被炸毁）
+  damageBridges(pos, size);
+  // 闪光核心
+  const core = new THREE.Mesh(new THREE.SphereGeometry(size*0.5,10,8),
+    basic(0xffcf5a,{transparent:true,opacity:0.95}));
+  core.position.copy(pos); scene.add(core);
+  fxList.push({ mesh:core, life:0.45, max:0.45, type:'boom', size });
+  // 冲击波光环
+  const ring = new THREE.Mesh(new THREE.RingGeometry(size*0.3, size*0.6, 20),
+    basic(0xff8a3c,{transparent:true,opacity:0.8,side:THREE.DoubleSide}));
+  ring.rotation.x = -Math.PI/2;
+  ring.position.copy(pos); ring.position.y = 0.8; scene.add(ring);
+  fxList.push({ mesh:ring, life:0.5, max:0.5, type:'ring', size });
+  // 碎片粒子
+  const pc = Math.min(14, Math.max(6, Math.round(size*0.9)));
+  for (let i=0;i<pc;i++) {
+    const sp = new THREE.Mesh(new THREE.SphereGeometry(size*0.09,5,4), basic(0xffb347));
+    sp.position.copy(pos); scene.add(sp);
+    const v = new THREE.Vector3((Math.random()-0.5)*size*0.9, Math.random()*size*0.7+1, (Math.random()-0.5)*size*0.9);
+    fxList.push({ mesh:sp, life:0.6, max:0.6, type:'particle', vel:v });
+  }
+  // 烟雾云（持续更久）
+  if (hasSmoke || size >= 14) {
+    const smokeCount = Math.min(5, Math.max(2, Math.round(size/8)));
+    for (let i=0;i<smokeCount;i++) {
+      const sm = new THREE.Mesh(new THREE.SphereGeometry(size*0.55+i*size*0.08,7,6),
+        basic(0x555555,{transparent:true,opacity:0.4}));
+      sm.position.set(pos.x+(Math.random()-0.5)*size*0.6, pos.y+size*0.3, pos.z+(Math.random()-0.5)*size*0.6);
+      scene.add(sm);
+      fxList.push({ mesh:sm, life:1.8, max:1.8, type:'smoke', grow:1.6 });
+    }
+  }
+  // 大爆炸地面冲击痕迹（持续较久，视觉层次感）
+  if (size >= 12) {
+    const scorch = new THREE.Mesh(new THREE.CircleGeometry(size*0.9, 16),
+      basic(0x222222,{transparent:true,opacity:0.35}));
+    scorch.rotation.x = -Math.PI/2;
+    scorch.position.set(pos.x, 0.5, pos.z);
+    scene.add(scorch);
+    fxList.push({ mesh:scorch, life:12, max:12, type:'scorch' });
+  }
+}
+
+function gunFlash(pos, color) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1.6,8,6), basic(0xffe08a,{transparent:true,opacity:0.85}));
+  m.position.copy(pos); scene.add(m);
+  fxList.push({ mesh:m, life:0.12, max:0.12, type:'spark' });
+}
+
+function updateFx(dt) {
+  for (let i=fxList.length-1;i>=0;i--) {
+    const f = fxList[i];
+    f.life -= dt;
+    const k = 1 - f.life/f.max;
+    if (f.type==='boom') {
+      f.mesh.scale.setScalar(1 + k*1.8);
+      f.mesh.material.opacity = (1-k)*0.95;
+    } else if (f.type==='ring') {
+      f.mesh.scale.setScalar(1 + k*2.4);
+      f.mesh.material.opacity = (1-k)*0.8;
+    } else if (f.type==='particle') {
+      f.vel.y -= 22*dt;
+      f.mesh.position.addScaledVector(f.vel, dt);
+      f.mesh.material.opacity = 1-k;
+    } else if (f.type==='smoke') {
+      // 烟雾：先膨胀，再淡出
+      const growK = Math.min(1, (1-k)*2.5);
+      f.mesh.scale.setScalar(1 + (f.grow||1.5)*growK);
+      f.mesh.material.opacity = Math.max(0, (1-k)*0.4);
+    } else {
+      f.mesh.material.opacity = (1-k);
+      f.mesh.scale.setScalar(1+k);
+    }
+    if (f.life <= 0) { scene.remove(f.mesh); fxList.splice(i,1); }
+  }
+  // 焦化痕迹
+  for (let i=fxList.length-1;i>=0;i--) {
+    const f = fxList[i];
+    if (f.type !== 'scorch') continue;
+    f.life -= dt;
+    f.mesh.material.opacity = Math.max(0, (f.life/f.max)*0.35);
+    if (f.life <= 0) { scene.remove(f.mesh); fxList.splice(i,1); }
+  }
+}
+
+// ============================================================
+//  阵营 & 布阵 & 战略AI
+// ============================================================
+function createFactions(n, scaleKey) {
+  factions = [];
+  unitId = 0;
+  const counts = ARMY[scaleKey];
+  const shrink = n>=5 ? 0.6 : n===4 ? 0.75 : 1;
+  for (let i=0;i<n;i++) {
+    const f = { id:i, color:FACTION_COLORS[i], name:FACTION_NAMES[i], units:[], alive:0,
+                baseAngle:(i/n)*Math.PI*2, basePos:new THREE.Vector3(),
+                stance:'hold', focus:null, sneak:false, cdrT:Math.random()*3 };
+    f.visionMat = new THREE.MeshBasicMaterial({ color:FACTION_COLORS[i], transparent:true,
+      opacity:0.07, side:THREE.DoubleSide, depthWrite:false });
+    factions.push(f);
+  }
+  for (const f of factions) {
+    for (const [type, cnt] of Object.entries(counts)) {
+      const c = Math.max(1, Math.round(cnt*shrink));
+      for (let j=0;j<c;j++) f.units.push(new Unit(type, f));
+    }
+    f.alive = f.units.length;
+    placeFormation(f);
+  }
+  factions.forEach((f)=>{
+    const flag = makeFlag(f.color);
+    flag.position.set(Math.cos(f.baseAngle)*(ISLAND_R*0.78), 0, Math.sin(f.baseAngle)*(ISLAND_R*0.78));
+    scene.add(flag);
+    flagList.push(flag);
+  });
+  placeGarrisons();
+  // 初始化各阵营 AI 指挥员
+  factions.forEach(initCommanders);
+}
+
+function placeFormation(faction) {
+  const ang = faction.baseAngle;
+  const rx = Math.cos(ang), rz = Math.sin(ang);    // 外径向
+  const lx = -Math.sin(ang), lz = Math.cos(ang);   // 横向
+  faction.basePos.set(rx*(ISLAND_R*0.70), terrainHeight(rx*(ISLAND_R*0.70), rz*(ISLAND_R*0.70)), rz*(ISLAND_R*0.70));
+
+  // 按兵种分组
+  const groups = {};
+  for (const u of faction.units) (groups[u.type] ||= []).push(u);
+
+  for (const type in groups) {
+    const arr = groups[type];
+    const cfg = FORM[type];
+    arr.forEach((u, idx)=>{
+      const off = (idx - (arr.length-1)/2) * cfg.spacing;
+      let r;
+      if (cfg.naval) r = NAVAL_IN + 26 + (idx % 2) * 26;
+      else r = ISLAND_R * cfg.rf;
+      u.slot.set(rx*r + lx*off, terrainHeight(rx*r + lx*off, rz*r + lz*off), rz*r + lz*off);
+      u.slotAlt = cfg.alt || GROUND_Y;
+      // 初始位置直接摆在站位附近（省去跑动），并面向路口中心
+      u.pos.set(u.slot.x + (Math.random()-0.5)*4, terrainHeight(u.slot.x, u.slot.z), u.slot.z + (Math.random()-0.5)*4);
+      u.mesh.rotation.y = Math.atan2(-u.slot.x, -u.slot.z);
+    });
+  }
+}
+
+// 小岛驻军：每个阵营向每个小岛派驻部分地面单位（让岛真正有人、可守岛作战）
+function placeGarrisons() {
+  if (!SMALL_ISLANDS.length) return;
+  SMALL_ISLANDS.forEach((is, isIdx) => {
+    factions.forEach((f) => {
+      const pool = f.units.filter(u => u.def.domain === 'land' && !u.homeIsland);
+      const take = 2 + (isIdx % 2); // 每岛每阵营 2~3 个
+      for (let k = 0; k < take && pool.length; k++) {
+        const u = pool.shift();
+        u.homeIsland = is;
+        const a = Math.random()*Math.PI*2, rr = Math.random()*is.r*0.6;
+        const px = is.x + Math.cos(a)*rr, pz = is.z + Math.sin(a)*rr;
+        u.pos.set(px, GROUND_Y, pz);
+        u.slot.set(px, GROUND_Y, pz);
+        u.slotAlt = GROUND_Y;
+        u.mesh.rotation.y = Math.random()*Math.PI*2;
+      }
+    });
+  });
+}
+
+// ============================================================
+//  AI 指挥员体系：每个阵营配多名指挥员，实时分配任务目标点
+// ============================================================
+const CMD_ROLES = ['front', 'flankL', 'flankR', 'support', 'air', 'navy'];
+const CMD_NAMES = {
+  front:'总司令', flankL:'左翼指挥员', flankR:'右翼指挥员',
+  support:'火力指挥员', air:'空军指挥员', navy:'海军指挥员'
+};
+const TASK_CN = {
+  assault:'主攻', flank:'包抄', hold:'坚守', fire_support:'火力支援',
+  skirmish:'游击', air_strike:'空中打击', naval_support:'海军支援', reserve:'预备',
+  assault_island:'渡海夺岛'
+};
+// 找某阵营最近的指定领域敌方单位（供海军求战等）
+function nearestEnemyUnit(f, domain) {
+  let best = null, bd = Infinity;
+  for (const o of factions) {
+    if (o === f) continue;
+    for (const u of o.units) {
+      if (u.dead || u.def.domain !== domain) continue;
+      const d = u.pos.distanceToSquared(f.basePos);
+      if (d < bd) { bd = d; best = u; }
+    }
+  }
+  return best;
+}
+let staleTick = 0;
+function initCommanders(f) {
+  f.commanders = [];
+  f.commanders.push({ role:'front',  name:CMD_NAMES.front,  task:null, thinkT:Math.random()*2 });
+  f.commanders.push({ role:'flankL', name:CMD_NAMES.flankL, task:null, thinkT:Math.random()*2 + 1 });
+  f.commanders.push({ role:'flankR', name:CMD_NAMES.flankR, task:null, thinkT:Math.random()*2 + 1 });
+  f.commanders.push({ role:'support',name:CMD_NAMES.support,task:null, thinkT:Math.random()*2 + 2 });
+  if (f.units.some(u=>!u.dead && u.def.domain==='air'))
+    f.commanders.push({ role:'air',  name:CMD_NAMES.air,  task:null, thinkT:Math.random()*2 });
+  if (f.units.some(u=>!u.dead && u.def.domain==='naval'))
+    f.commanders.push({ role:'navy', name:CMD_NAMES.navy, task:null, thinkT:Math.random()*2 });
+  assignCmdRoles(f);
+}
+
+// 单位→指挥员角色的固定编组：避免多名指挥员每几秒互相抢同一批单位导致部队来回拉扯
+function assignCmdRoles(f) {
+  const assault = f.units.filter(u => !u.homeIsland && u.def.domain==='land' && (u.type==='infantry' || u.type==='tank'));
+  assault.forEach((u, i) => { u.cmdRole = ['front','flankL','flankR'][i % 3]; });
+  for (const u of f.units) {
+    if (u.cmdRole || u.homeIsland) continue;
+    const d = u.def.domain, t = u.type;
+    if (d === 'air') u.cmdRole = 'air';
+    else if (d === 'naval') u.cmdRole = 'navy';
+    else if (t==='artillery' || t==='rocket' || t==='sam' || t==='aa') u.cmdRole = 'support';
+    else u.cmdRole = 'front';
+  }
+}
+
+function updateCommanders(dt) {
+  for (const f of factions) {
+    if (!f.commanders) initCommanders(f);
+    if (!f.units.some(u=>!u.dead)) continue;
+
+    // 战略层：每 4 秒重新评估焦点与姿态
+    f.cdrT = (f.cdrT || 0) - dt;
+    if (f.cdrT <= 0) {
+      f.cdrT = 4;
+      strategicBriefing(f);
+    }
+
+    // 战术层：各指挥员按自身节奏更新任务
+    for (const c of f.commanders) {
+      c.thinkT -= dt;
+      if (c.thinkT > 0) continue;
+      c.thinkT = 2.5 + Math.random()*1.5;
+      const task = planTask(f, c);
+      if (task) {
+        c.task = task;
+        assignUnitsToCommander(f, c);
+      }
+    }
+  }
+}
+
+function strategicBriefing(f) {
+  const myPower = f.units.reduce((s,u)=> s + (u.dead?0:u.hp), 0);
+  const enemies = factions.filter(o => o!==f && o.units.some(u=>!u.dead));
+  if (!enemies.length) { f.focus = null; f.stance='hold'; f.rally=null; rebuildCommandMarkers(f); return; }
+
+  const power = new Map();
+  for (const e of enemies) power.set(e.id, e.units.reduce((s,u)=> s + (u.dead?0:u.hp), 0));
+
+  let focus=null, fw=Infinity;
+  for (const e of enemies) { const p=power.get(e.id); if(p<fw){ fw=p; focus=e; } }
+  f.focus = focus;
+  const strongest = Math.max(...enemies.map(e=>power.get(e.id)));
+
+  let stance;
+  if (myPower > fw*1.15) stance = 'attack';
+  else if (myPower < strongest*0.8) stance = 'defend';
+  else stance = 'balanced';
+
+  f.sneak = false;
+  const focusAtWar = isEngaged(focus, new Set([f.id]));
+  if (focusAtWar && stance!=='defend') { stance = 'attack'; f.sneak = true; }
+  else if (focusAtWar && stance==='defend' && myPower > fw*0.9) { stance='balanced'; f.sneak=true; }
+
+  // 指挥决策：按敌情指定【集结点】与【进攻方向】
+  f.rally = f.basePos.clone().lerp(focus.basePos, stance==='defend' ? 0.12 : 0.34);
+  const ad = focus.basePos.clone().sub(f.rally); ad.y = 0;
+  if (ad.lengthSq() < 1e-3) ad.set(1,0,0);
+  ad.normalize();
+  f.attackDir = ad;
+
+  // 侦察小岛敌情：驻军最多的敌占小岛 = 渡海夺岛目标（无敌驻军则为 null）
+  let isle = null, isleCnt = 0;
+  for (const is of SMALL_ISLANDS) {
+    let c = 0;
+    for (const o of factions) {
+      if (o === f) continue;
+      for (const u of o.units) if (!u.dead && u.homeIsland === is) c++;
+    }
+    if (c > isleCnt) { isleCnt = c; isle = is; }
+  }
+  f.islandTarget = isleCnt > 0 ? isle : null;
+
+  rebuildCommandMarkers(f);
+
+  if (f.stance !== stance) {
+    const bearing = Math.round((Math.atan2(ad.x, ad.z) * 180 / Math.PI + 360) % 360);
+    logEvent(f.name + ' 转入「' + STANCE_CN[stance] + '」' + (f.sneak?'（偷袭）':'') +
+      '：集结于(' + Math.round(f.rally.x) + ',' + Math.round(f.rally.z) + ')，主攻 ' + bearing + '°',
+      f.color);
+  }
+  f.stance = stance;
+}
+
+// 重建某阵营的指挥标记：集结圈 + 进攻方向箭头 + 连线
+function rebuildCommandMarkers(f) {
+  for (let i=commandLayer.children.length-1; i>=0; i--) {
+    const c = commandLayer.children[i];
+    if (c.userData.fac === f) {
+      commandLayer.remove(c);
+      c.geometry && c.geometry.dispose();
+      c.material && c.material.dispose();
+    }
+  }
+  if (!f.rally || !f.attackDir || !f.focus) return;
+  const col = f.color;
+  const gy = terrainHeight(f.rally.x, f.rally.z);
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(62, 82, 56),
+    basic(col, { side:THREE.DoubleSide, transparent:true, opacity:0.75, depthWrite:false })
+  );
+  ring.rotation.x = -Math.PI/2;
+  ring.position.set(f.rally.x, gy + 2.2, f.rally.z);
+  ring.userData.fac = f; ring.userData.kind = 'ring';
+  commandLayer.add(ring);
+  const dir = f.attackDir;
+  const ang = Math.atan2(dir.x, dir.z);
+  const reach = 240;
+  const arrow = new THREE.Mesh(
+    new THREE.ConeGeometry(20, 64, 4),
+    basic(col, { transparent:true, opacity:0.9, depthWrite:false })
+  );
+  arrow.position.set(f.rally.x + dir.x*reach, gy + 16, f.rally.z + dir.z*reach);
+  arrow.rotation.x = Math.PI/2;
+  arrow.rotation.y = ang;
+  arrow.userData.fac = f; arrow.userData.kind = 'arrow';
+  commandLayer.add(arrow);
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(f.rally.x, gy + 2.2, f.rally.z),
+      new THREE.Vector3(f.rally.x + dir.x*reach, gy + 16, f.rally.z + dir.z*reach),
+    ]),
+    basic(col, { transparent:true, opacity:0.6 })
+  );
+  line.userData.fac = f; line.userData.kind = 'line';
+  commandLayer.add(line);
+}
+
+// 根据角色与当前战略生成任务目标点
+function planTask(f, c) {
+  const focus = f.focus;
+  if (!focus) return { kind:'hold', targetPos:f.basePos.clone(), priority:1, until:simTime+6 };
+
+  const stance = f.stance;
+  const dir = f.attackDir || focus.basePos.clone().sub(f.basePos).setY(0).normalize();
+  const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+  const R = ISLAND_R;
+  // 以集结点为基点，沿进攻方向展开队形
+  const base = f.rally || f.basePos.clone();
+  const front   = base.clone().add(dir.clone().multiplyScalar(R*0.30));
+  const support = base.clone().add(dir.clone().multiplyScalar(-R*0.04));
+  const flankL  = base.clone().add(perp.clone().multiplyScalar(R*0.42)).add(dir.clone().multiplyScalar(R*0.06));
+  const flankR  = base.clone().add(perp.clone().multiplyScalar(-R*0.42)).add(dir.clone().multiplyScalar(R*0.06));
+  const hold    = base.clone().add(dir.clone().multiplyScalar(R*0.06));
+
+  let kind='hold', targetPos=hold.clone();
+
+  if (c.role === 'front') {
+    if (stance === 'attack') { kind='assault'; targetPos=front; }
+    else if (stance === 'defend') { kind='hold'; targetPos=hold; }
+    else { kind='skirmish'; targetPos=front; }
+  } else if (c.role === 'flankL') {
+    if (f.islandTarget && stance !== 'defend') {
+      // 有敌占小岛 → 左翼分队渡海夺岛
+      kind = 'assault_island';
+      targetPos = new THREE.Vector3(f.islandTarget.x, 0, f.islandTarget.z);
+    }
+    else if (stance === 'attack' || f.sneak) { kind='flank'; targetPos=flankL; }
+    else if (stance === 'defend') { kind='skirmish'; targetPos=hold; }
+    else { kind='flank'; targetPos=flankL; }
+  } else if (c.role === 'flankR') {
+    if (stance === 'attack' || f.sneak) { kind='flank'; targetPos=flankR; }
+    else if (stance === 'defend') { kind='skirmish'; targetPos=hold; }
+    else { kind='flank'; targetPos=flankR; }
+  } else if (c.role === 'support') {
+    if (stance === 'attack' || stance === 'balanced') { kind='fire_support'; targetPos=support; }
+    else { kind='hold'; targetPos=f.basePos.clone(); }
+  } else if (c.role === 'air') {
+    const center = new THREE.Vector3(0, 0, 0);
+    if (stance === 'attack') targetPos = focus.basePos.clone().lerp(center, 0.3).setY(0);
+    else if (stance === 'defend') targetPos = f.basePos.clone().lerp(center, 0.5).setY(0);
+    else targetPos = center;
+    kind = 'air_strike';
+  } else if (c.role === 'navy') {
+    // 有敌舰 → 驶往交火；无敌舰 → 压到焦点敌军海岸外游弋，舰炮轰击滩头
+    const foeShip = nearestEnemyUnit(f, 'naval');
+    if (foeShip) {
+      targetPos = foeShip.pos.clone();
+    } else {
+      const coast = focus.basePos.clone().setY(0);
+      const rr = Math.hypot(coast.x, coast.z) || 1;
+      targetPos = coast.multiplyScalar((NAVAL_IN + 90) / rr);
+    }
+    kind = 'naval_support';
+  }
+
+  // 目标点限制在地图内
+  clampOnMap(targetPos);
+  // 渡海夺岛航程远，任务有效期拉长，避免半路任务过期掉头
+  const ttl = kind === 'assault_island' ? 24 : 5.5;
+  return { kind, targetPos, priority:(stance==='attack'?3:stance==='defend'?1:2), until:simTime+ttl };
+}
+
+function clampOnMap(v) {
+  const r = Math.hypot(v.x, v.z);
+  if (r > MAP_HALF*0.92) { const k=MAP_HALF*0.92/r; v.x*=k; v.z*=k; }
+}
+
+// 把阵营单位按固定编组（cmdRole）分配给对应指挥员任务，不再互相抢兵
+function assignUnitsToCommander(f, c) {
+  const task = c.task; if (!task) return;
+  for (const u of f.units) {
+    if (u.dead || u.homeIsland) continue;
+    if (u.cmdRole !== c.role) continue;
+    u.commander = c;
+    u.cmdTask = { kind:task.kind, targetPos:task.targetPos.clone(), priority:task.priority, until:task.until };
+  }
+}
+
+function isEngaged(fac, exclude) {
+  if (!fac) return false;
+  for (const u of fac.units) {
+    if (u.dead || !u.target || u.target.dead) continue;
+    if (exclude.has(u.target.faction.id)) continue;
+    if (u.pos.distanceTo(u.target.pos) < u.def.range*1.3) return true;
+  }
+  return false;
+}
+
+const STANCE_CN = { attack:'进攻', defend:'防守', balanced:'机动', hold:'待命' };
+
+function makeFlag(color) {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,26,8), M(0x8a8f96));
+  pole.position.y = 13; g.add(pole);
+  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(9,6), basic(color,{side:THREE.DoubleSide}));
+  cloth.position.set(4.8,21,0); g.add(cloth);
+  return g;
+}
+
+// ============================================================
+//  循环
+// ============================================================
+let simTime = 0;
+function loop() {
+  const raw = Math.min(clock.getDelta(), 0.05);
+  const dt = paused ? 0 : raw * speedMul;
+  simTime += dt;
+  staleTick++;
+
+  // 集火预测表衰减：避免死亡单位残留
+  for (const [id, dmg] of incomingDamage) {
+    const u = findUnitById(id);
+    if (!u || u.dead) incomingDamage.delete(id);
+    else incomingDamage.set(id, dmg * 0.96);
+  }
+  if (phase === 'battle') {
+    for (const f of factions) for (const u of f.units) if (!u.dead) u.update(dt);
+    updateCommanders(dt);
+    if ((staleTick % 2) === 0) separation();
+    for (let i=projectiles.length-1;i>=0;i--) {
+      const p = projectiles[i];
+      p.update(dt);
+      if (p.dead) projectiles.splice(i,1);
+    }
+    updateFx(dt);
+    updateStats();
+    checkEnd();
+  } else {
+    updateFx(dt);
+  }
+
+  if (camTween) updateCamTween(raw)
+  else if (followUnit && !followUnit.dead) {
+    tmpV.set(followUnit.pos.x, followUnit.mesh.position.y, followUnit.pos.z);
+    controls.target.lerp(tmpV, 0.12);
+  } else if (followUnit && followUnit.dead) {
+    followUnit = null;
+  }
+
+  controls.update();
+
+  // 指挥标记呼吸脉冲
+  const pulse = 1 + 0.08*Math.sin(simTime*3);
+  for (const c of commandLayer.children) {
+    if (c.userData.kind === 'ring') c.scale.set(pulse, pulse, 1);
+  }
+  // 波浪动画已移除（用户反馈外圈晃眼），波浪圈保持静态低透明度
+  // 屏幕震动
+  if (screenShake.mag > 0.05) {
+    screenShake.x = (Math.random()-0.5) * screenShake.mag * 2;
+    screenShake.y = (Math.random()-0.5) * screenShake.mag * 2;
+    screenShake.mag *= screenShake.decay;
+    renderer.domElement.style.transform = `translate(${screenShake.x}px, ${screenShake.y}px)`;
+  } else if (renderer.domElement.style.transform) {
+    renderer.domElement.style.transform = '';
+    screenShake.mag = 0;
+  }
+  // 战斗激烈度指示
+  if ((staleTick % 10) === 0) updateIntensity();
+  renderer.render(scene, camera);
+  drawRadar();
+  if ((staleTick % 6) === 0) { updateIntel(); if (selectedUnit) renderInspector(); }
+}
+
+function separation() {
+  const all = [];
+  for (const f of factions) for (const u of f.units) if (!u.dead) all.push(u);
+  // 简单网格分区优化：避免 O(n²) 全量比较
+  const CELL = 30;
+  const grid = new Map();
+  for (const u of all) {
+    if (u.def.domain === 'air') continue;
+    const cx = Math.floor(u.pos.x / CELL), cz = Math.floor(u.pos.z / CELL);
+    const key = cx + ',' + cz;
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(u);
+  }
+  for (const [key, cell] of grid) {
+    const [cx, cz] = key.split(',').map(Number);
+    // 检查本格及相邻8格
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const nkey = (cx+dx) + ',' + (cz+dz);
+        const ncell = grid.get(nkey);
+        if (!ncell) continue;
+        for (const a of cell) {
+          for (const b of ncell) {
+            if (a === b || a.def.domain !== b.def.domain) continue;
+            const ddx = b.pos.x-a.pos.x, ddz = b.pos.z-a.pos.z;
+            const d2 = ddx*ddx+ddz*ddz;
+            const minD = (a.def.domain==='naval'?8:5);
+            if (d2 < minD*minD && d2 > 0.0001) {
+              const d = Math.sqrt(d2);
+              const push = (minD-d)/minD * 0.6;
+              const nx = ddx/d, nz = ddz/d;
+              a.pos.x -= nx*push; a.pos.z -= nz*push;
+              if (b.def.domain!=='air'){ b.pos.x += nx*push; b.pos.z += nz*push; }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function checkEnd() {
+  // 先更新所有阵营的存活数
+  factions.forEach(f => { f.alive = f.units.filter(u=>!u.dead).length; });
+  const aliveFactions = factions.filter(f => f.alive > 0);
+  if (aliveFactions.length <= 1) {
+    phase = 'end';
+    const win = aliveFactions[0];
+    document.getElementById('resultTitle').textContent = win ? `${win.name} 胜利` : '同归于尽';
+    document.getElementById('resultTitle').style.color = win ? hex(win.color) : '#e5e7eb';
+    document.getElementById('resultSub').textContent = win ? `存活单位 ${win.alive}` : '无人生还';
+    document.getElementById('result').classList.add('show');
+    logEvent(win ? `${win.name} 取得胜利！` : '同归于尽', win?win.color:0xffd479);
+    SFX.victory(!!win);
+  }
+}
+
+// ============================================================
+//  HUD
+// ============================================================
+function buildFactionStats() {
+  const box = document.getElementById('factionStats');
+  box.innerHTML = '';
+  factions.forEach(f=>{
+    const el = document.createElement('div');
+    el.className = 'fstat'; el.id = 'fs'+f.id;
+    el.innerHTML = `<span class="fdot" style="background:${hex(f.color)};color:${hex(f.color)}"></span>
+      <span>${f.name}</span><span class="fcount" id="fc${f.id}">0</span>`;
+    box.appendChild(el);
+  });
+  // 情报中心行
+  const rows = document.getElementById('intelRows');
+  rows.innerHTML = '';
+  factions.forEach(f=>{
+    const el = document.createElement('div');
+    el.className = 'irow';
+    el.innerHTML = `<span class="nm" style="color:${hex(f.color)}">${f.name}</span>
+      <span class="ibar"><i id="bar${f.id}" style="background:${hex(f.color)}"></i></span>
+      <span class="cnt" id="ic${f.id}">0</span>
+      <span class="stance" id="st${f.id}">布阵</span>`;
+    rows.appendChild(el);
+  });
+}
+
+function updateStats() {
+  factions.forEach(f=>{
+    const el = document.getElementById('fs'+f.id);
+    const c = document.getElementById('fc'+f.id);
+    if (c) c.textContent = f.alive;
+    if (el) el.classList.toggle('dead', f.alive===0);
+  });
+}
+
+function updateCommanderIntel() {
+  const log = document.getElementById('log');
+  if (!log) return;
+  // 每 6 秒更新一次任务摘要，避免刷屏
+  if (!window._cmdIntelT || simTime - window._cmdIntelT > 6) {
+    window._cmdIntelT = simTime;
+    for (const f of factions) {
+      if (!f.commanders || !f.alive) continue;
+      const c = f.commanders.find(c => c.task && c.role === 'front') || f.commanders[0];
+      if (c && c.task) {
+        const t = TASK_CN[c.task.kind] || c.task.kind;
+        logEvent(f.name + c.name + '：' + t + (f.focus ? ' → ' + f.focus.name : ''), f.color);
+      }
+    }
+  }
+}
+
+function updateIntel() {
+  if (!factions.length) return;
+  // 作战会议：把各阵营当前主要任务写进情报中心
+  updateCommanderIntel();
+  const powers = factions.map(f=> f.units.reduce((s,u)=>s+(u.dead?0:u.hp),0));
+  const maxP = Math.max(1, ...powers);
+  factions.forEach((f,i)=>{
+    const b = document.getElementById('bar'+f.id);
+    const c = document.getElementById('ic'+f.id);
+    const s = document.getElementById('st'+f.id);
+    if (b) b.style.width = (powers[i]/maxP*100).toFixed(0)+'%';
+    if (c) c.textContent = f.alive;
+    if (s) {
+      let txt = phase==='menu' ? '布阵' : (f.alive? (STANCE_CN[f.stance]||'—')+(f.sneak?'⚡':'') : '阵亡');
+      // 显示总司令当前任务
+      const cmd = f.commanders && f.commanders.find(c => c.role==='front' && c.task);
+      if (cmd) txt += ' · ' + (TASK_CN[cmd.task.kind] || cmd.task.kind);
+      s.textContent = txt;
+    }
+  });
+}
+
+function renderInspector() {
+  const box = document.getElementById('inspector');
+  const u = selectedUnit;
+  if (!u || u.dead) { box.style.display='none'; return; }
+  box.style.display = 'block';
+  const tg = u.target && !u.target.dead ? `${u.target.faction.name} ${u.target.def.name}` : '无';
+  document.getElementById('inspBody').innerHTML = `
+    <div class="kv"><span>单位</span><b style="color:${hex(u.faction.color)}">${u.faction.name} ${u.def.name}</b></div>
+    <div class="kv"><span>状态</span><b>${u.state}</b></div>
+    <div class="kv"><span>血量</span><b>${Math.max(0,Math.round(u.hp))} / ${u.maxHp}</b></div>
+    <div class="kv"><span>视野</span><b>${u.def.vision}</b></div>
+    <div class="kv"><span>射程</span><b>${u.def.range}</b></div>
+    <div class="kv"><span>锁定</span><b>${tg}</b></div>
+    <div class="kv"><span>阵营姿态</span><b>${STANCE_CN[u.faction.stance]||'—'}${u.faction.sneak?' 偷袭':''}</b></div>`;
+}
+
+// 事件日志
+function logEvent(text, color) {
+  const log = document.getElementById('log');
+  if (!log) return;
+  const d = document.createElement('div');
+  const t = Math.floor(simTime);
+  d.innerHTML = `<span style="color:${hex(color||0x9fb0c7)}">●</span> [${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}] ${text}`;
+  log.prepend(d);
+  while (log.children.length > 7) log.removeChild(log.lastChild);
+}
+
+const radar = document.getElementById('radar');
+const rctx = radar.getContext('2d');
+function drawRadar() {
+  if (!factions.length || phase==='menu') return;
+  const W = radar.width, H = radar.height;
+  rctx.clearRect(0,0,W,H);
+  rctx.strokeStyle = 'rgba(59,130,246,0.3)';
+  rctx.beginPath(); rctx.arc(W/2,H/2,W/2-4,0,Math.PI*2); rctx.stroke();
+  const scale = (W/2-6)/MAP_HALF;
+  rctx.fillStyle = 'rgba(74,124,58,0.35)';
+  rctx.beginPath(); rctx.arc(W/2,H/2,ISLAND_R*scale,0,Math.PI*2); rctx.fill();
+  // 散布的小岛
+  rctx.fillStyle = 'rgba(79,138,64,0.5)';
+  SMALL_ISLANDS.forEach(is=>{
+    rctx.beginPath(); rctx.arc(W/2+is.x*scale, H/2+is.z*scale, is.r*scale, 0, Math.PI*2); rctx.fill();
+  });
+  // 高山（地形遮挡）
+  rctx.fillStyle = 'rgba(120,130,90,0.95)';
+  for (const b of coverBlockers) {
+    if (b.type!=='mountain') continue;
+    rctx.beginPath(); rctx.arc(W/2+b.x*scale, H/2+b.z*scale, 3.2, 0, Math.PI*2); rctx.fill();
+  }
+  // 水路（海峡）
+  rctx.save();
+  rctx.translate(W/2, H/2);
+  rctx.rotate(Math.PI/4);
+  rctx.fillStyle = 'rgba(13,74,138,0.38)';
+  rctx.fillRect(-14*scale, -ISLAND_R*scale, 28*scale, ISLAND_R*1.4*scale);
+  rctx.rotate(-Math.PI/4);
+  rctx.rotate(-Math.PI/5);
+  rctx.fillRect(-11*scale, -ISLAND_R*scale, 22*scale, ISLAND_R*1.2*scale);
+  rctx.restore();
+  for (const f of factions) {
+    rctx.fillStyle = hex(f.color);
+    for (const u of f.units) {
+      if (u.dead) continue;
+      const x = W/2 + u.pos.x*scale;
+      const y = H/2 + u.pos.z*scale;
+      rctx.beginPath();
+      rctx.arc(x, y, u.def.domain==='air'?1.4:2.2, 0, Math.PI*2);
+      rctx.fill();
+    }
+  }
+  if (selectedUnit && !selectedUnit.dead) {
+    rctx.strokeStyle = '#ffd479';
+    rctx.beginPath();
+    rctx.arc(W/2+selectedUnit.pos.x*scale, H/2+selectedUnit.pos.z*scale, 5, 0, Math.PI*2);
+    rctx.stroke();
+  }
+}
+
+function updateIntensity() {
+  if (phase === 'menu') return;
+  let engagements = 0;
+  for (const f of factions) {
+    for (const u of f.units) {
+      if (u.dead) continue;
+      if (u.state === '交战' || u.state === '接敌') engagements++;
+    }
+  }
+  const el = document.getElementById('intensity');
+  if (!el) return;
+  if (engagements >= 12) {
+    el.textContent = '🔥 激战正酣'; el.className = 'hot';
+  } else if (engagements >= 6) {
+    el.textContent = '⚔ 交火中'; el.className = 'warm';
+  } else {
+    el.textContent = '战况平稳'; el.className = '';
+  }
+}
+
+function updatePhaseLabel() {
+  const el = document.getElementById('phase');
+  if (!el) return;
+  if (phase==='battle') el.textContent = '战斗打响';
+  else if (phase==='menu') el.textContent = '战前布阵';
+  else el.textContent = '';
+}
+
+let bannerTimer = null;
+function banner(text, ms=2400) {
+  const b = document.getElementById('banner');
+  b.textContent = text; b.style.opacity = 1;
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(()=> b.style.opacity = 0, ms);
+}
+
+// ============================================================
+//  相机
+// ============================================================
+function flyTo(pos, target, dur=1.1) {
+  camTween = { fromPos:camera.position.clone(), toPos:pos.clone(),
+               fromTgt:controls.target.clone(), toTgt:target.clone(), t:0, dur };
+}
+function updateCamTween(raw) {
+  camTween.t += raw/camTween.dur;
+  const k = Math.min(1, camTween.t);
+  const e = k<0.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
+  camera.position.lerpVectors(camTween.fromPos, camTween.toPos, e);
+  controls.target.lerpVectors(camTween.fromTgt, camTween.toTgt, e);
+  if (k>=1) camTween = null;
+}
+
+// ============================================================
+//  工具
+// ============================================================
+// ============================================================
+//  地形与掩护
+// ============================================================
+// 线段是否穿过圆（XZ 平面）——用于地形遮挡判定
+function segCircle(ax,az,bx,bz,cx,cz,cr){
+  const dx=bx-ax, dz=bz-az;
+  const fx=ax-cx, fz=az-cz;
+  const a=dx*dx+dz*dz;
+  if (a<1e-6) return (fx*fx+fz*fz) <= cr*cr;
+  let t=-(fx*dx+fz*dz)/a; t=Math.max(0,Math.min(1,t));
+  const px=ax+dx*t-cx, pz=az+dz*t-cz;
+  return (px*px+pz*pz) <= cr*cr;
+}
+
+// 掩护减伤：目标藏在碉堡/战壕后（source 在掩体另一侧）时减伤
+function coverFactor(target, source) {
+  let f = 1;
+  for (const b of coverBlockers) {
+    if (b.type!=='bunker') continue;
+    const d = Math.hypot(target.pos.x-b.x, target.pos.z-b.z);
+    if (d < b.r+24) {
+      const toT = new THREE.Vector2(target.pos.x-b.x, target.pos.z-b.z);
+      const toS = new THREE.Vector2(target.pos.x-source.pos.x, target.pos.z-source.pos.z);
+      if (toT.dot(toS) < 0) f = Math.min(f, 0.5);
+    }
+  }
+  for (const tr of trenches) {
+    const d = Math.hypot(target.pos.x-tr.x, target.pos.z-tr.z);
+    if (d < tr.r) {
+      const toT = new THREE.Vector2(target.pos.x-tr.x, target.pos.z-tr.z);
+      const toS = new THREE.Vector2(target.pos.x-source.pos.x, target.pos.z-source.pos.z);
+      if (toT.dot(toS) < 0) f = Math.min(f, 0.7);
+    }
+  }
+  return f;
+}
+
+// ============================================================
+//  战斗反馈：浮动伤害 / 击杀播报 / 瞄准点
+// ============================================================
+function spawnDamageNum(worldPos, amount, factionColor) {
+  const v = worldPos.clone();
+  v.project(camera);
+  const sx = (v.x * 0.5 + 0.5) * innerWidth;
+  const sy = (-v.y * 0.5 + 0.5) * innerHeight;
+  if (v.z > 1) return;  // 在相机后面不显示
+  const el = document.createElement('div');
+  el.className = 'dmgNum';
+  const hex = '#' + factionColor.toString(16).padStart(6,'0');
+  const big = amount > 80;
+  el.style.cssText = `left:${sx}px; top:${sy}px; color:${hex}; font-size:${big?18:14}px; font-weight:${big?900:700};`;
+  el.textContent = big ? `-${amount}` : `-${amount}`;
+  document.body.appendChild(el);
+  setTimeout(()=> el.remove(), 1200);
+}
+
+function spawnKill(atkFaction, vicFaction, atkName, vicName) {
+  const box = document.getElementById('killfeed');
+  const el = document.createElement('div');
+  el.className = 'kf';
+  const atkHex = '#' + atkFaction.color.toString(16).padStart(6,'0');
+  const vicHex = '#' + vicFaction.color.toString(16).padStart(6,'0');
+  el.innerHTML = `<span class="kf" style="color:${atkHex}">${atkFaction.name}${atkName}</span> <span class="at">击落</span> <span class="kf" style="color:${vicHex}">${vicFaction.name}${vicName}</span>`;
+  box.appendChild(el);
+  setTimeout(()=> el.remove(), 3200);
+  while (box.children.length > 4) box.removeChild(box.lastChild);
+}
+
+function spawnAim(worldPos, factionColor) {
+  const v = worldPos.clone();
+  v.project(camera);
+  const sx = (v.x * 0.5 + 0.5) * innerWidth;
+  const sy = (-v.y * 0.5 + 0.5) * innerHeight;
+  if (v.z > 1) return;
+  const el = document.createElement('div');
+  el.className = 'aimDot';
+  const hex = '#' + factionColor.toString(16).padStart(6,'0');
+  el.style.cssText = `left:${sx}px; top:${sy}px; border-color:${hex};`;
+  document.body.appendChild(el);
+  setTimeout(()=> el.remove(), 900);
+}
+
+// ============================================================
+//  工具
+// ============================================================
+function lerpAngle(a,b,t){
+  let d = ((b-a+Math.PI)%(Math.PI*2))-Math.PI;
+  if (d < -Math.PI) d += Math.PI*2;
+  return a + d*t;
+}
+function onResize() {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+
+// ============================================================
+//  UI 交互
+// ============================================================
+document.querySelectorAll('#factionOpts .opt').forEach(o=>{
+  o.onclick = ()=>{ document.querySelectorAll('#factionOpts .opt').forEach(x=>x.classList.remove('active'));
+    o.classList.add('active'); factionCount = +o.dataset.n; };
+});
+document.querySelectorAll('#scaleOpts .opt').forEach(o=>{
+  o.onclick = ()=>{ document.querySelectorAll('#scaleOpts .opt').forEach(x=>x.classList.remove('active'));
+    o.classList.add('active'); scaleKey = o.dataset.s; };
+});
+
+document.getElementById('startBtn').onclick = startGame;
+
+function startGame() {
+  // 清理所有旧单位及其 Three.js 对象
+  for (const f of factions) for (const u of f.units) {
+    if (u.bar) scene.remove(u.bar.group);
+    if (u.visionRing) scene.remove(u.visionRing);
+    if (u.mesh) scene.remove(u.mesh);
+    if (u.wakeEl) scene.remove(u.wakeEl);
+  }
+  // 清理弹道与特效
+  projectiles.forEach(p=>{ scene.remove(p.mesh); if(p.flame)scene.remove(p.flame); p.smoke.forEach(s=>scene.remove(s.mesh)); });
+  projectiles = [];
+  fxList.forEach(f=>scene.remove(f.mesh)); fxList = [];
+  flagList.forEach(f=>scene.remove(f)); flagList = [];
+  followUnit = null; selectedUnit = null;
+
+  // 重置全局状态
+  factions = [];
+  commanders = [];
+  simTime = 0;
+  staleTick = 0;
+  window._cmdIntelT = 0;
+  totalKills = 0;
+  incomingDamage = new Map();
+  screenShake.mag = 0; screenShake.x = 0; screenShake.y = 0;
+  camTween = null;
+
+  createFactions(factionCount, scaleKey);
+
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('hud').style.display = 'block';
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('killfeed').innerHTML = '';
+  document.getElementById('inspector').style.display = 'none';
+  document.getElementById('intelRows').innerHTML = '';
+  buildFactionStats();
+
+  phase = 'battle';
+  paused = false; speedMul = 1;
+  commandLayer.clear();
+  // 指挥部初始态势判断
+  factions.forEach(initCommanders);
+  updateCommanders(5);
+  document.getElementById('speedBtn').textContent = '1× 速度';
+  document.getElementById('pauseBtn').textContent = '⏸ 暂停';
+
+  SFX.init();
+  flyTo(new THREE.Vector3(0, 1250, 760), new THREE.Vector3(0,0,0), 1.8);
+  banner(`${factionCount} 方大军接敌！`);
+  updatePhaseLabel();
+  updateIntel();
+  logEvent('战斗开始', 0x7dd3fc);
+  SFX.banner();
+}
+
+document.getElementById('speedBtn').onclick = function(){
+  speedMul = speedMul===1?2:speedMul===2?4:1;
+  this.textContent = speedMul+'× 速度'; SFX.ui();
+};
+document.getElementById('pauseBtn').onclick = function(){
+  paused = !paused;
+  this.textContent = paused ? '▶ 继续' : '⏸ 暂停';
+  this.classList.toggle('on', paused); SFX.ui();
+};
+document.getElementById('viewBtn').onclick = ()=>{
+  followUnit = null;
+  flyTo(new THREE.Vector3(0, 980, 60), new THREE.Vector3(0,0,0), 1.2);
+  banner('俯瞰视角'); SFX.ui();
+};
+document.getElementById('visionBtn').onclick = function(){
+  visionOn = !visionOn;
+  this.classList.toggle('on', visionOn);
+  banner(visionOn ? '显示各单位视野圈' : '关闭视野显示'); SFX.ui();
+};
+document.getElementById('soundBtn').onclick = function(){
+  const m = SFX.toggle();
+  this.classList.toggle('on', !m);
+  this.textContent = m ? '🔇 静音' : '🔊 音效';
+  if (!m) SFX.ui();
+};
+document.getElementById('restartBtn').onclick = ()=>{
+  document.getElementById('result').classList.remove('show');
+  startGame();
+};
+document.getElementById('againBtn').onclick = ()=>{
+  document.getElementById('result').classList.remove('show');
+  startGame();
+};
+
+addEventListener('keydown', e=>{
+  if (e.code==='Space'){ e.preventDefault(); document.getElementById('pauseBtn').click(); }
+  if (e.key==='1'){ speedMul=1; document.getElementById('speedBtn').textContent='1× 速度'; }
+  if (e.key==='2'){ speedMul=2; document.getElementById('speedBtn').textContent='2× 速度'; }
+  if (e.key==='4'){ speedMul=4; document.getElementById('speedBtn').textContent='4× 速度'; }
+});
+
+function findUnitByMesh(obj){
+  for (const f of factions) for (const u of f.units) {
+    let o = obj; while (o){ if (o===u.mesh) return u; o = o.parent; }
+  }
+  return null;
+}
+function findUnitById(id){
+  for (const f of factions) for (const u of f.units) if (u.id === id) return u;
+  return null;
+}
+
+// ============================================================
+//  启动
+// ============================================================
+try { init(); }
+catch(err) {
+  document.getElementById('loader').textContent = '加载失败：' + err.message;
+  console.error(err);
+}
+setTimeout(()=>{
+  const l = document.getElementById('loader');
+  if (l && l.style.display !== 'none') {
+    l.innerHTML = '引擎加载超时（可能无法访问 CDN）<br><span style="font-size:12px;color:#7c8aa0">请检查网络后刷新页面</span>';
+  }
+}, 10000);
+</script>
+</body>
+</html>

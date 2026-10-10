@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+
+# 编译产物 / 系统
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+
+# 大体积二进制（exe / dll 等不入库）
+*.exe
+*.dll
+
+# 密钥与内部配置（绝不入库）
+.env
+.workbuddy/
