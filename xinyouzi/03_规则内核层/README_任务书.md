@@ -55,10 +55,10 @@ csproj 里加上：
 
 | 文件/目录 | 内容 |
 |---|---|
-| `src/WorldState.cs` | 状态类型 + 深拷贝 `Clone()` |
-| `src/Types.cs` | 全部枚举（`ActionType` / `ActorType` / `ArmyStance` / `PostType` / `ResolveResultCode`） |
-| `src/Order.cs` | 统一指令 + 三个工厂方法 |
-| `src/IResolver.cs` | 结算器接口 |
+| `src/WorldState.cs` | 状态的**扩展辅助**（状态类型本体在契约里） |
+| `src/Types.cs` | Core 本地枚举（`TurnStep` / `DeltaTarget` / `DeltaField` 等） |
+| `src/Order.cs` | Order 扩展辅助方法 |
+| `src/IResolver.cs` | 结算器**基类** `ResolverBase` 与共享校验 |
 | `src/Resolvers/*.cs` | 六个结算器，每个独立文件 |
 | `src/ResolverRegistry.cs` | 注册表 + 分发 |
 | `src/CommandProcessor.cs` | 批量处理 |
@@ -140,9 +140,18 @@ if (_rng.Next(100) < 15) { /* ... */ }
 3. 产出至少一条 `EventRecord`
 4. **不修改传入的 state**
 
-`ResolverRegistry.Dispatch` 负责查找对应结算器并调用。未注册的 `ActionType` 必须返回 `Rejected_InvalidTarget` 而不是抛异常。
+`ResolverRegistry.Dispatch` 负责查找对应结算器并调用。未注册的 `ActionType` 必须返回 `RejectedNotImplemented` 而不是抛异常。
 
-**公式来源**：`02_内容数据层` 的数值表，以及 `01_设计规格层` 的战斗系统设计文档。公式里的系数不要硬编码，从 `BalanceConfig` 读。
+> 裁决记录：任务书早期版本写的 `Rejected_InvalidTarget` 有误——那是「目标不存在」的语义，会误导玩家。已按契约修正。
+
+**公式来源**：`01_设计规格层/3_战斗系统设计.md`（已完成）与 `4_数值框架.md`（已完成）。
+
+系数从 `BalanceConfig` 读，**已新增以下字段**（见 `Interfaces.cs`）：
+`BaseLoss` / `DefenderLossFactor` / `SiegeThresholdLoss` / `FieldBattleLossRate` /
+`StalemateLossRate` / `ArmyMonthlyGrainPerSoldier` / `SiegeDefeatRoutRate`。
+
+**`DispatchResolver` 必须实现完整战斗结算**，包括三种结果（攻陷 / 击退 / 未决）。
+这是 P0 玩法，玩法闭环缺它就不成立——不要再标 TODO。
 
 ### R4 时间层
 

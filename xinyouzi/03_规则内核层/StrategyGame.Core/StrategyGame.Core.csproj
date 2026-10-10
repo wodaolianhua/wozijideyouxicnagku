@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- 规则层是纯定义库，不应产出可执行文件 -->
+    <OutputType>Library</OutputType>
+
+    <RootNamespace>StrategyGame.Core</RootNamespace>
+    <AssemblyName>StrategyGame.Core</AssemblyName>
+
+    <!-- 仅允许 .NET 8 与 StrategyGame.Contracts。禁止 Unity/Godot 等引擎 SDK。 -->
+    <RollForward>LatestMajor</RollForward>
+
+    <!--
+      强制 XML 文档：开启后 CS1591（公开成员缺注释）会被 TreatWarningsAsErrors
+      拦下。这让"所有公开类型有 XML 文档注释"成为编译期硬约束，而不是靠自觉。
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      唯一的类型来源。禁止在本工程重新声明 WorldState / Order / ResolveResult /
+      IResolver 等契约类型——重声明会产生两套类型，编译必然失败。
+    -->
+    <ProjectReference Include="..\..\StrategyGame.Contracts\StrategyGame.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

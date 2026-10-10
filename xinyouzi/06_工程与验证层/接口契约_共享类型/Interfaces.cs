@@ -170,6 +170,32 @@ public sealed class BalanceConfig
 
     /// <summary>专长加成。键为 "Specialty:Post" 或 "Specialty:Any"，值为百分比。</summary>
     public Dictionary<string, int> SpecialtyBonus { get; set; } = new();
+
+    // ================================================================
+    //  战斗系统系数 —— 来源：01_设计规格层/3_战斗系统设计.md
+    //  必须走配置，禁止在代码中硬编码。缺任何一项都视为配置校验失败。
+    // ================================================================
+
+    /// <summary>攻城战基础战损率。基准 0.35（百分数 35）。</summary>
+    public int BaseLoss { get; set; }
+
+    /// <summary>守方损失系数。守方有城墙保护，损失低于攻方。基准 0.6。</summary>
+    public int DefenderLossFactor { get; set; }
+
+    /// <summary>攻陷阈值。lossRate 超过此值判为击退。基准 70（百分数）。</summary>
+    public int SiegeThresholdLoss { get; set; }
+
+    /// <summary>野战损失系数。野战无城墙消耗，损失低于攻城。基准 0.6。</summary>
+    public int FieldBattleLossFactor { get; set; }
+
+    /// <summary>未决状态双方各自损失比例。基准 10（百分数）。</summary>
+    public int StalemateLossRate { get; set; }
+
+    /// <summary>装备兵每月耗粮。基准 20（耗粮 = 兵力 × 本值 / 1000）。</summary>
+    public int ArmyMonthlyGrainPerSoldier { get; set; }
+
+    /// <summary>战败时城池易主，守方兵力清零比例。基准 100（百分数）。</summary>
+    public int SiegeDefeatRoutRate { get; set; }
 }
 
 /// <summary>人才初始模板。</summary>
@@ -215,6 +241,80 @@ public interface IConfigLoader
     List<OfficerTemplate> LoadOfficers();
     List<CityTemplate> LoadCities();
     List<GameEventTemplate> LoadEvents();
+}
+
+// ============================================================================
+//  命名系统契约
+// ============================================================================
+//  【为什么进契约】名字必须可复现：同一 Seed 生成同一批名字，否则存档读档后
+//  名字会变，批量模拟也无法复现。这和规则层的确定性要求是同一件事。
+// ============================================================================
+
+/// <summary>
+/// 名字生成器。必须注入 IRandom，禁止使用 Guid /系统时间 / Random.Shared。
+/// </summary>
+public interface INameGenerator
+{
+    /// <summary>生成势力名。</summary>
+    string GenerateFactionName(int factionId);
+
+    /// <summary>生成城池名。</summary>
+    string GenerateCityName(int cityId);
+
+    /// <summary>生成人才全名。</summary>
+    string GenerateOfficerName(int officerId);
+
+    /// <summary>按专长生成称号，如「农圣」「守城者」。用于 UI 展示人才特质。</summary>
+    string GenerateSpecialtyTitle(OfficerSpecialty specialty);
+}
+
+/// <summary>
+/// 玩家命名校验。命名规则见 01_设计规格层/命名系统/0_命名系统设计.md。
+/// </summary>
+public static class NamingRules
+{
+    public const int MinLength = 2;
+    public const int MaxLength = 8;
+
+    /// <summary>校验玩家输入的名字。返回错误原因；合法时返回 null。</summary>
+    public static string? ValidatePlayerName(string? name, string? existingNames = null)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "名字不能为空";
+
+        if (name.Length < MinLength || name.Length > MaxLength)
+            return $"名字长度需在 {MinLength}-{MaxLength} 个字符之间";
+
+        if (!name.All(IsAllowedChar))
+            return "名字只能包含中文汉字";
+
+        if (existingNames != null && existingNames.Contains(name))
+            return "这个名字已被使用";
+
+        return null;
+    }
+
+    /// <summary>允许的字符：中文字符与常见汉字范围。</summary>
+    private static bool IsAllowedChar(char c) => c >= 0x4E00 && c <= 0x9FFF;
+}
+
+/// <summary>玩家可命名的对象范围。城池与 AI 势力不可命名，保持世界可信度。</summary>
+public static class NamingScope
+{
+    /// <summary>玩家可命名自己的势力。</summary>
+    public const bool PlayerFaction = true;
+
+    /// <summary>玩家可命名自己的君主角色。</summary>
+    public const bool PlayerCharacter = true;
+
+    /// <summary>玩家可命名自己招揽到的人才。</summary>
+    public const bool RecruitedOfficers = true;
+
+    /// <summary>城池不可命名——城池是地理实体，不该由玩家随意起名。</summary>
+    public const bool Cities = false;
+
+    /// <summary>AI 势力不可命名。</summary>
+    public const bool AiFactions = false;
 }
 
 // ============================================================================

@@ -43,7 +43,62 @@ tests/
 
 对应 `BalanceConfig` 的每个字段，全部填具体数值。数值依据来自 `01_设计规格层` 的 `4_数值框架.md`。
 
-关键字段：`GrainPerPopPerMonth`、`SoldierPerPopPerMonth`、`LoyaltyThreshold`、`SpecialtyBonus`。
+**设计已定稿**，`1_设计规格层` 已全部完成，直接取数：
+
+| 键 | 值 | 来源 |
+|---|---|---|
+| `grainPerPopPerMonth` | 0.08 | 数值框架 |
+| `soldierPerPopPerMonth` | 0.5 | 数值框架 |
+| `recruitCostSilverPerSoldier` | 3 | 数值框架 |
+| `recruitCostGrainPerSoldier` | 2 | 数值框架 |
+| `fortifyCostSilverPerLevel` | 200 | 数值框架 |
+| `developCostSilverPerLevel` | 150 | 数值框架 |
+| `stabilityNaturalRecovery` | 5 | 数值框架 |
+| `moraleNaturalRecovery` | 3 | 数值框架 |
+| `moraleDecayWhenPeace` | 2 | 数值框架 |
+| `loyaltyDecayPerMonth` | 1 | 数值框架 |
+| `loyaltyThreshold` | 25 | 数值框架 |
+| `rewardCostSilver` | 100 | 数值框架 |
+| `rewardLoyaltyGain` | 8 | 数值框架 |
+| `maxOrdersPerFactionPerMonth` | 5 | 数值框架 |
+
+**战斗系数（新增，03 包正在等这些值）**：
+
+| 键 | 值 | 来源 |
+|---|---|---|
+| `baseLoss` | 35 | 战斗设计 |
+| `defenderLossFactor` | 60 | 战斗设计 |
+| `siegeThresholdLoss` | 70 | 战斗设计 |
+| `fieldBattleLossFactor` | 60 | 战斗设计 |
+| `stalemateLossRate` | 10 | 战斗设计 |
+| `armyMonthlyGrainPerSoldier` | 20 | 战斗设计 |
+| `siegeDefeatRoutRate` | 100 | 战斗设计 |
+
+**注意**：战斗系数是百分数（35 表示 35%），命名以百分数语义为准。
+若 `BalanceConfig` 中的字段名与此略有不同，以 `Interfaces.cs` 的实际定义为准。
+
+### R2.1 初始状态数据（新增，必做）
+
+数值框架里已定稿初始配置，直接填入 `cities.json` / `officers.json`：
+
+**势力对比**（普通难度）：
+
+| 项 | 玩家 | 中原霸主 | 边疆异族 |
+|---|---|---|---|
+| 城池数 | 2 | 2 | 2 |
+| 每城人口 | 3000 | 4500 | 2500 |
+| 人才数量 | 3-4 | 5-6 | 4-5 |
+| 平均 Command | 45 | 68 | 60 |
+| 平均 Governance | 48 | 65 | 40 |
+| 初始粮 | 1200 | 2600 | 1500 |
+| 初始银 | 800 | 2000 | 900 |
+| 初始兵源 | 300 | 800 | 600 |
+
+**玩家的两座城必须相邻。**
+
+**初始忠诚度**：老部下 65（一起落难的旧人）。
+
+**难度档位**：Easy 时 AI 资源 ×1.3，Hard 时 ×0.85。
 
 ### R3 officers.json
 
@@ -81,16 +136,63 @@ tests/
 
 **返回所有问题列表，不抛异常**。由调用方决定是否中断启动。
 
+### R7 名字生成器词库（新增，必做）
+
+按 `01_设计规格层/命名系统/0_命名系统设计.md` 的规格建词库文件。
+
+**交付文件**：
+
+```
+assets/data/names/
+  faction_words.json      # 势力名用词≥ 60
+  city_prefix.json        # 城池名前缀 ≥ 40
+  city_suffix.json        # 城池名后缀 ≥ 25
+  officer_surname.json    # 姓氏 ≥ 80
+  officer_given.json      # 名字 ≥ 60
+  specialty_title.json    # 专长称号 ≥ 30
+```
+
+**命名风格约束**（违反即退回）：
+- **禁止**真实历史地名、真实人物名、有现实指向的国名
+- **禁止**现代词汇
+- 允许古风地名（山川、关隘、地形命名法）
+
+**实现要求**：
+- 注入 `IRandom`，同 Seed 产出完全相同
+- 固定 Seed 下 1000 次调用零重复（单元测试验证）
+- 禁用 `Guid.NewGuid()` / `DateTime.Now` / `Random.Shared`
+
+**占位名规范**：数据文件里的名字可以先用占位名 `City_01`，但必须带 `TODO(命名)` 标记，便于日后全局替换。
+
+**玩家命名校验**：实现 `NamingRules.ValidatePlayerName`（已在契约里定义）。
+玩家可命名自己的势力、君主、招揽到的人才；**城池和 AI 势力不可命名**。
+
+---
+
 ## 验收标准（DoD）
 
+### 配置数据
+
 - [ ] 七个 JSON 文件齐全，UTF-8，含 `_comment` 说明
+- [ ] `config.json` 包含全部 20 个系数，数值与本文档表格一致
 - [ ] 所有 JSON 可被 `JsonConfigLoader` 成功加载
 - [ ] 故意写入一个非法数据（如负数资源），校验器能检出并给出可读错误信息
 - [ ] 故意破坏城池相邻关系（指向不存在的城），校验器能检出
 - [ ] 单元测试：加载→校验→再序列化，往返后数据完全一致
 - [ ] 数值全部有`_comment` 说明，无裸数字
-- [ ] 5 名以上人才，特质覆盖至少 4 种
-- [ ] 6 座城，相邻关系对称（A 邻 B 则 B 也邻 A）
+- [ ] 6 座城分属 3 势力，相邻关系对称
+- [ ] **玩家的两座城相邻**
+- [ ] **玩家初始人才 Command/Governance 在 40-55 区间**（平庸是玩法要求，不是随便填）
+- [ ] 5 名以上人才，专长覆盖至少 4 种
+- [ ] 老部下忠诚度为 65
+
+### 名字生成器
+
+- [ ] 六个词库文件齐全，规模达到 R7 要求的最低值
+- [ ] 无真实历史地名、人物名、政治敏感词
+- [ ] 固定 Seed 下 1000 次调用零重复（单元测试验证）
+- [ ] 同 Seed 两次生成结果完全相同（单元测试验证）
+- [ ] 占位名全部带 `TODO(命名)` 标记
 
 ## 禁止事项
 
@@ -99,3 +201,5 @@ tests/
 - 禁止在 JSON 里放逻辑表达式或函数指针（只能放数据，逻辑在 Resolver 里）
 - 禁止静默容错——数据非法必须报错，不能用默认值蒙混过关
 - 禁止遗漏 `_comment`——半年后没人记得这个数为什么是这个数
+- **禁止在词库里使用真实历史地名或真实人物名**
+- 禁止使用 `Guid.NewGuid()` / `DateTime.Now` / `Random.Shared` 做名字生成
