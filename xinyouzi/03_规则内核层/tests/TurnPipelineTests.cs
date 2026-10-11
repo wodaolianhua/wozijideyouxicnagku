@@ -104,10 +104,11 @@ public sealed class TurnPipelineTests
         var processor = new CommandProcessor(ResolverRegistry.CreateDefault(Config, random), applier);
         var events = SampleData.CreateEvents();
 
-        // 把三个事件概率都设为 100，确保必然触发
+        // 把三个事件概率都设为 100%，确保必然触发
+        // 【v1.2】事件概率刻度由百分数改为万分比，10000 = 100%。
         foreach (var evt in events)
         {
-            evt.Probability = 100;
+            evt.Probability = 10_000;
         }
 
         var pipeline = new TurnPipeline(
@@ -123,7 +124,13 @@ public sealed class TurnPipelineTests
         });
     }
 
-    /// <summary>第 3 步：民心与稳定度应按配置衰减。</summary>
+    /// <summary>第 3 步：稳定度按配置衰减；民心在稳定度不足时额外流失。</summary>
+    /// <remarks>
+    /// 【v1.2 语义修正】<c>MoraleDecayPerMonth</c> 是<b>部队士气</b>的自然恢复量
+    /// （4_数值框架.md 5.2，作用对象是 <c>Army.Morale</c>），
+    /// <b>不是</b>势力民心 <c>Resources.Morale</c> 的月衰减值。
+    /// 因此第 3 步只驱动 Stability，民心仅在稳定度跌破三成时额外下滑。
+    /// </remarks>
     [Fact]
     public void RunMonth_ShouldDecayMoraleAndStability()
     {
@@ -134,12 +141,27 @@ public sealed class TurnPipelineTests
         var (pipeline, _) = CreatePipeline(state);
         pipeline.RunMonth(state);
 
-        Assert.Equal(
-            Math.Max(0, moraleBefore - Config.MoraleDecayPerMonth),
-            state.GetFaction(0)!.Resources.Morale);
+        // 初始稳定度 80 → 79，仍在三成以上，民心不变。
         Assert.Equal(
             Math.Max(0, stabilityBefore - Config.StabilityDecayPerMonth),
             state.GetFaction(0)!.Resources.Stability);
+        Assert.Equal(moraleBefore, state.GetFaction(0)!.Resources.Morale);
+    }
+
+    /// <summary>稳定度跌破三成时，势力民心开始额外流失。</summary>
+    [Fact]
+    public void RunMonth_LowStability_ShouldDrainPopularity()
+    {
+        var state = SampleData.CreateWorld();
+        state.GetFaction(0)!.Resources.Stability = 30;
+        int moraleBefore = state.GetFaction(0)!.Resources.Morale;
+
+        var (pipeline, _) = CreatePipeline(state);
+        pipeline.RunMonth(state);
+
+        Assert.True(
+            state.GetFaction(0)!.Resources.Morale < moraleBefore,
+            "稳定度低于三成时民心应下降。");
     }
 
     /// <summary>第 5 步：兵源结算必须增加可用士兵。</summary>

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ============================================================================
+    StrategyGame.Data —— 02 内容数据层
+    ============================================================================
+    【职责边界】本工程只做三件事：
+      1. 从 assets/data/*.json 读取数据（JsonConfigLoader）
+      2. 校验数据是否合法（ConfigValidator）—— 校验失败必须报错，禁止静默兜底
+      3. 提供数据的保存/往返序列化能力（JsonRoundTrip）
+
+    【硬规则】
+      · 类型一律来自 StrategyGame.Contracts，本工程不重复声明契约类型。
+      · 本工程不含任何游戏规则逻辑。规则在 03 包，本工程只喂数据。
+      · 本工程不碰 C 盘，不使用 Guid.NewGuid / DateTime.Now / Random.Shared。
+    ============================================================================
+  -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>StrategyGame.Data</AssemblyName>
+    <RootNamespace>StrategyGame.Data</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- 数据层必须零警告 -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StrategyGame.Contracts\StrategyGame.Contracts.csproj" />
+  </ItemGroup>
+
+  <!--
+    assets/data 以链接方式带入，编译期不需要，但让 IDE 能直接编辑，
+    且保证 tests 能通过相对路径定位到同一份数据。
+  -->
+  <ItemGroup>
+    <None Include="..\..\assets\data\**\*.json" Link="assets\data\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

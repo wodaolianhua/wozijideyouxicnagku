@@ -74,7 +74,7 @@ public enum ResolveResultCode
     RejectedNoResources = 2,
     /// <summary>目标 Id 不存在。</summary>
     RejectedInvalidTarget = 3,
-    /// <summary>目标已被其他部队占据或正在被围。</summary>
+    /// <summary>目标城池已被其他势力占领（非己方，且不是围困状态）。</summary>
     RejectedTargetOccupied = 4,
     /// <summary>该操作要求先任命人才到岗。</summary>
     RejectedNoPost = 5,
@@ -86,6 +86,14 @@ public enum ResolveResultCode
     RejectedNotImplemented = 8,
     /// <summary>人力不足：超出本势力本月可执行的指令总数上限。</summary>
     RejectedInsufficientCapacity = 9,
+
+    // ===== 战斗状态类 =====
+    /// <summary>【v1.2 新增】目标城池正被围困（Siege 标记中），本月不能再发起 Dispatch。
+    /// <para><b>为什么要独立于 <see cref="RejectedTargetOccupied"/>：</b>
+    /// "已被占领"和"被围困"对玩家是完全不同的两件事——
+    /// 前者是永久性的（要换个目标），后者是临时的（等一个月）。
+    /// 混在一个码里，玩家会以为围城是永久拒绝，从而放弃"围城牵制"这个战术。</para></summary>
+    RejectedTargetSieged = 10,
 
     // ===== 系统异常类 =====
     /// <summary>内部错误。属于Bug，必须记录日志。</summary>

@@ -468,13 +468,13 @@ public sealed class ConfigValidatorTests
     {
         var events = new List<GameEventTemplate>
         {
-            new() { Id = "e1", Category = EventCategory.Economy, Probability = 150, Message = "越界" },
+            new() { Id = 1, Category = EventCategory.Economy, Probability = 15_000, Message = "越界" },
         };
 
         var issues = ConfigValidator.Validate(
             SampleData.CreateBalance(), new List<OfficerTemplate>(), new List<CityTemplate>(), events);
 
-        Assert.Contains(issues, i => i.Location == "Event[e1]" && i.Severity == ConfigIssueSeverity.Error);
+        Assert.Contains(issues, i => i.Location == "Event[1]" && i.Severity == ConfigIssueSeverity.Error);
     }
 
     /// <summary>同类事件概率之和不得超过 60。</summary>
@@ -483,8 +483,8 @@ public sealed class ConfigValidatorTests
     {
         var events = new List<GameEventTemplate>
         {
-            new() { Id = "e1", Category = EventCategory.Economy, Probability = 40, Message = "a" },
-            new() { Id = "e2", Category = EventCategory.Economy, Probability = 30, Message = "b" },
+            new() { Id = 1, Category = EventCategory.Economy, Probability = 4000, Message = "a" },
+            new() { Id = 2, Category = EventCategory.Economy, Probability = 3000, Message = "b" },
         };
 
         var issues = ConfigValidator.Validate(
@@ -546,13 +546,206 @@ public sealed class ConfigValidatorTests
 
         var events = new List<GameEventTemplate>
         {
-            new() { Id = "", Category = EventCategory.Economy, Probability = -1, Message = "" },
+            new() { Id = 0, Category = EventCategory.Economy, Probability = -1, Message = "" },
         };
 
         var issues = ConfigValidator.Validate(balance, officers, cities, events);
 
         // 应返回多条问题，而不是在第一处就抛异常。
         Assert.True(issues.Count >= 8, $"应至少报出 8 个问题，实际 {issues.Count} 个。");
+    }
+
+    // ========================================================================
+    //  v1.2 新增的 3 条校验规则
+    // ========================================================================
+
+    /// <summary>
+    /// 新增规则 1：<c>BaseKill</c> 必须存在且 &gt; 0。
+    /// </summary>
+    /// <remarks>
+    /// 【为什么是错误而不是警告】BaseKill ≤ 0 时 killRate 恒为 0，
+    /// 守军永远打不光，「攻陷」成为<b>数学上不可达</b>的分支——
+    /// 游戏会退化成「永远打不下任何城」。这类配置必须阻断开局。
+    /// </remarks>
+    [Fact]
+    public void Validate_BaseKillMissing_ShouldReportError()
+    {
+        foreach (var bad in new[] { 0, -1 })
+        {
+            var balance = SampleData.CreateBalance();
+            balance.BaseKill = bad;
+
+            var issues = ConfigValidator.Validate(
+                balance,
+                new List<OfficerTemplate>(),
+                new List<CityTemplate>(),
+                new List<GameEventTemplate>());
+
+            Assert.Contains(issues, i =>
+                i.Location == "BaseKill" && i.Severity == ConfigIssueSeverity.Error);
+        }
+    }
+
+    /// <summary><c>BaseKill</c> 超过万分比上限（&gt;100%）也必须报错。</summary>
+    [Fact]
+    public void Validate_BaseKillAboveScale_ShouldReportError()
+    {
+        var balance = SampleData.CreateBalance();
+        balance.BaseKill = ConfigValidator.ProbabilityScale + 1;
+
+        var issues = ConfigValidator.Validate(
+            balance, new List<OfficerTemplate>(), new List<CityTemplate>(), new List<GameEventTemplate>());
+
+        Assert.Contains(issues, i =>
+            i.Location == "BaseKill" && i.Severity == ConfigIssueSeverity.Error);
+    }
+
+    /// <summary>
+    /// 新增规则 2：废弃字段 <c>DefenderLossFactor</c> / <c>StalemateLossRate</c>
+    /// 只告警，不阻断。
+    /// </summary>
+    /// <remarks>
+    /// 【为什么不阻断】这两个字段留在契约里只为兼容旧 config.json。
+    /// 它们已不参与计算，值残留不会让结算出错，只会让开发者困惑；
+    /// 若升级就报错，旧存档直接无法加载，代价远大于收益。
+    /// 因此必须<b>恰好是 Warning</b>，且不能出现 Error。
+    /// </remarks>
+    [Fact]
+    public void Validate_DeprecatedFields_ShouldWarnOnly()
+    {
+        var balance = SampleData.CreateBalance();
+        balance.DefenderLossFactor = 60;
+        balance.StalemateLossRate = 10;
+
+        var issues = ConfigValidator.Validate(
+            balance, new List<OfficerTemplate>(), new List<CityTemplate>(), new List<GameEventTemplate>());
+
+        Assert.Contains(issues, i =>
+            i.Location == "DefenderLossFactor" && i.Severity == ConfigIssueSeverity.Warning);
+
+        Assert.Contains(issues, i =>
+            i.Location == "StalemateLossRate" && i.Severity == ConfigIssueSeverity.Warning);
+
+        // 关键：不能同时报 Error，否则旧配置会被阻断。
+        Assert.DoesNotContain(issues, i =>
+            (i.Location == "DefenderLossFactor" || i.Location == "StalemateLossRate")
+            && i.Severity == ConfigIssueSeverity.Error);
+    }
+
+    /// <summary>废弃字段为 0 时不应产生噪音告警。</summary>
+    [Fact]
+    public void Validate_DeprecatedFieldsZero_ShouldNotWarn()
+    {
+        var issues = ConfigValidator.Validate(
+            SampleData.CreateBalance(),
+            new List<OfficerTemplate>(),
+            new List<CityTemplate>(),
+            new List<GameEventTemplate>());
+
+        Assert.DoesNotContain(issues, i =>
+            i.Location is "DefenderLossFactor" or "StalemateLossRate");
+    }
+
+    /// <summary>
+    /// 新增规则 3：8 个士气字段必须在合理范围。
+    /// </summary>
+    /// <remarks>
+    /// 【刻度陷阱】7 个是<b>绝对点数</b>（0-100），只有
+    /// <c>MutinyRoutRate</c> 是<b>万分比</b>。若把万分比项也按 0-100 校验，
+    /// 3000（30%）会被误判越界；反之把点数项按万分比校验则完全失效。
+    /// </remarks>
+    [Fact]
+    public void Validate_MoralePointsOutOfRange_ShouldReportError()
+    {
+        var pointFields = new Action<BalanceConfig>[]
+        {
+            b => b.MoraleDecayPerMonth = 0,
+            b => b.MoraleDecayNoBattleThreshold = 0,
+            b => b.MoraleDecayNoBattlePerMonth = 0,
+            b => b.MoraleGainOnCapture = 0,
+            b => b.MoraleLossOnRepel = 0,
+            b => b.MoraleLossOnStalemate = 0,
+            b => b.MoraleLossOnDefend = 0,
+        };
+
+        var names = new[]
+        {
+            "MoraleDecayPerMonth", "MoraleDecayNoBattleThreshold", "MoraleDecayNoBattlePerMonth",
+            "MoraleGainOnCapture", "MoraleLossOnRepel", "MoraleLossOnStalemate", "MoraleLossOnDefend",
+        };
+
+        for (int i = 0; i < pointFields.Length; i++)
+        {
+            var balance = SampleData.CreateBalance();
+            pointFields[i](balance);
+
+            var issues = ConfigValidator.Validate(
+                balance,
+                new List<OfficerTemplate>(),
+                new List<CityTemplate>(),
+                new List<GameEventTemplate>());
+
+            // Location 统一带 "BalanceConfig." 前缀，便于人工定位所属配置块。
+            Assert.Contains(issues, issue =>
+                issue.Location.EndsWith(names[i], StringComparison.Ordinal)
+                && issue.Severity == ConfigIssueSeverity.Error);
+        }
+    }
+
+    /// <summary>士气点数超过 100（士气量纲上限）必须报错。</summary>
+    [Fact]
+    public void Validate_MoralePointsAboveMax_ShouldReportError()
+    {
+        var balance = SampleData.CreateBalance();
+        balance.MoraleGainOnCapture = ConfigValidator.MoralePointMax + 1;
+
+        var issues = ConfigValidator.Validate(
+            balance, new List<OfficerTemplate>(), new List<CityTemplate>(), new List<GameEventTemplate>());
+
+        Assert.Contains(issues, i =>
+            i.Location.EndsWith("MoraleGainOnCapture", StringComparison.Ordinal)
+            && i.Severity == ConfigIssueSeverity.Error);
+    }
+
+    /// <summary>
+    /// <c>MutinyRoutRate</c> 是唯一的万分比项：3000合法（30%），
+    /// 超过 10000 才是错误。把它当 0-100 的点数项校验是错的。
+    /// </summary>
+    [Fact]
+    public void Validate_MutinyRoutRate_ShouldUseTenThousandScale()
+    {
+        var ok = SampleData.CreateBalance();
+        ok.MutinyRoutRate = 3000;
+
+        var okIssues = ConfigValidator.Validate(
+            ok, new List<OfficerTemplate>(), new List<CityTemplate>(), new List<GameEventTemplate>());
+
+        Assert.DoesNotContain(okIssues, i => i.Location == "MutinyRoutRate");
+
+        var bad = SampleData.CreateBalance();
+        bad.MutinyRoutRate = ConfigValidator.ProbabilityScale + 1;
+
+        var badIssues = ConfigValidator.Validate(
+            bad, new List<OfficerTemplate>(), new List<CityTemplate>(), new List<GameEventTemplate>());
+
+        Assert.Contains(badIssues, i =>
+            i.Location == "MutinyRoutRate" && i.Severity == ConfigIssueSeverity.Error);
+    }
+
+    /// <summary>
+    /// 击退阈值必须高于基础战损，否则任何攻城都会被判击退。
+    /// </summary>
+    [Fact]
+    public void Validate_ThresholdNotAboveBaseLoss_ShouldReportError()
+    {
+        var balance = SampleData.CreateBalance();
+        balance.SiegeThresholdLoss = balance.BaseLoss;
+
+        var issues = ConfigValidator.Validate(
+            balance, new List<OfficerTemplate>(), new List<CityTemplate>(), new List<GameEventTemplate>());
+
+        Assert.Contains(issues, i =>
+            i.Location == "SiegeThresholdLoss" && i.Severity == ConfigIssueSeverity.Error);
     }
 }
 

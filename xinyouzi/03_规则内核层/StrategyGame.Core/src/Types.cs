@@ -163,6 +163,27 @@ public static class DeltaField
     /// <summary>部队本月是否已休整（0/1）。</summary>
     public const string ArmyHasRested = "HasRestedThisMonth";
 
+    /// <summary>
+    /// 部队连续未参战的月数。达到和平腐化阈值后每月额外扣士气。
+    /// </summary>
+    /// <remarks>
+    /// 【必须进快照比对】该字段参与士气结算，漏检会让确定性测试出现假阴性。
+    /// 参见 <c>MoraleSystem.ResolveMonthlyMorale</c>。
+    /// </remarks>
+    public const string ArmyMonthsWithoutBattle = "MonthsWithoutBattle";
+
+    /// <summary>
+    /// 部队本月是否已触发哗变（0/1）。防止同一个月内重复解散兵力。
+    /// </summary>
+    /// <remarks>见 <c>MoraleSystem.ResolveMonthlyMorale</c> 的哗变分支。</remarks>
+    public const string ArmyHasMutiniedThisMonth = "HasMutiniedThisMonth";
+
+    /// <summary>部队的统帅 Id，-1 表示无。</summary>
+    public const string ArmyOfficerId = "OfficerId";
+
+    /// <summary>城池的归属势力 Id。攻陷时由Dispatch 写入。</summary>
+    public const string CityOwnerFactionId = "OwnerFactionId";
+
     /// <summary>人才的岗位所在城池 Id。</summary>
     public const string OfficerPostCityId = "PostCityId";
 
@@ -183,6 +204,12 @@ public static class DeltaField
 
     /// <summary>世界状态的本月已执行指令数。</summary>
     public const string WorldActionsThisMonth = "ActionsThisMonth";
+
+    /// <summary>玩家是否正在亲征（0/1）。</summary>
+    public const string WorldPlayerIsCommanding = "Player.IsPersonallyCommanding";
+
+    /// <summary>玩家亲征率领的部队 Id，-1 表示未亲征。</summary>
+    public const string WorldPlayerCommandingArmyId = "Player.CommandingArmyId";
 }
 
 /// <summary>
@@ -207,6 +234,18 @@ public static class EventKeys
 
     /// <summary>部队休整。</summary>
     public const string Rest = "ev.rest";
+
+    /// <summary>攻城成功，城池易主。</summary>
+    public const string CityCaptured = "ev.city_captured";
+
+    /// <summary>攻城受挫，部队被击退。</summary>
+    public const string SiegeRepelled = "ev.siege_repelled";
+
+    /// <summary>攻城未决，双方各有损失。</summary>
+    public const string SiegeStalemate = "ev.siege_stalemate";
+
+    /// <summary>部队士气归零导致哗变逃散。</summary>
+    public const string Mutiny = "ev.mutiny";
 
     /// <summary>经济结算（月度粮产入账）。</summary>
     public const string EconomyIncome = "ev.economy_income";

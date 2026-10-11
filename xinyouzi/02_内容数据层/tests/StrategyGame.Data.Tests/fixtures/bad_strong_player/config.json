@@ -1,0 +1,114 @@
+{
+  "_comment": "全局平衡参数。字段名以契约 BalanceConfig 为准。【刻度铁律】所有比率/系数一律是万分比整数，100% = 10000，禁止小数、禁止百分数（35 vs 3500）。绝对数量（银/粮/点）不受此约束。本文件是唯一不使用信封结构的文件：BalanceConfig 字段直接铺在根节点，_comment / _todos 作为同级额外键存在。除契约注释给出基准的以外均为占位值，定稿后策划直接改本文件，不需要改任何代码。",
+  "_todos": [
+    "TODO(数值): 本文件所有系数均为占位值，来自任务书 R2 表格与契约 v1.2 注释。01_设计规格层数值框架尚未定稿，定稿后需逐项复核。",
+    "TODO(数值): defenderLossFactor 与 stalemateLossRate 已在契约 v1.2 中标记为废弃（攻方损耗与守方伤亡改为 baseLoss / baseKill 两条独立公式，城墙保护由 killRate 公式承担）。按契约要求置 0，校验器检测到 > 0 时会输出告警。",
+    "TODO(数值): stabilityDecayPerMonth 按契约 v1.2 语义填万分比（500 = 每月衰减 Stability 自身的 5%）。任务书原表写的是 stabilityNaturalRecovery = 5（自然恢复，点/月），语义相反；该点数值作为 02 自己的实现细则放在 extendedBalance。"
+  ],
+
+  "grainPerPopPerMonth": 800,
+  "_c_grainPerPopPerMonth": "每人口每月产粮，万分比。800 = 0.08。3000 人口城 = 3000×800/10000 = 240 粮/月。契约 v1.2 已把该字段统一为万分比。",
+
+  "soldierPerPopPerMonth": 5000,
+  "_c_soldierPerPopPerMonth": "每人口每月产兵源，万分比。5000 = 0.5。3000 人口、Stability 60 的城每月约产 3000×5000/10000×0.6 = 90 兵源。兵源是全局最稀缺的资源，扩张速度由它决定。",
+
+  "moraleDecayPerMonth": 3,
+  "_c_moraleDecayPerMonth": "部队士气每月自然衰减（绝对点数，非比率）。契约基准 3。与 moraleDecayNoBattlePerMonth 是两笔独立叠加的扣减。",
+
+  "moraleDecayNoBattleThreshold": 6,
+  "_c_moraleDecayNoBattleThreshold": "触发和平腐化所需的连续未参战月数（绝对月数）。契约基准 6。超过后每月额外扣士气，逼玩家在休整与追击之间做选择。",
+
+  "moraleDecayNoBattlePerMonth": 2,
+  "_c_moraleDecayNoBattlePerMonth": "连续无战超过阈值后，每月的额外士气扣减（绝对点数）。契约基准 2。",
+
+  "moraleGainOnCapture": 10,
+  "_c_moraleGainOnCapture": "攻城攻陷后攻方士气增量（绝对点数）。契约基准 10。",
+
+  "moraleLossOnRepel": 12,
+  "_c_moraleLossOnRepel": "攻城被击退后攻方士气减量（绝对点数）。契约基准 12。",
+
+  "moraleLossOnStalemate": 3,
+  "_c_moraleLossOnStalemate": "攻城未决后攻方士气减量（绝对点数）。契约基准 3。",
+
+  "moraleLossOnDefend": 4,
+  "_c_moraleLossOnDefend": "守方无论战果的士气减量（绝对点数）。契约基准 4。存在意义是让龟缩防守不是零成本策略。",
+
+  "mutinyRoutRate": 3000,
+  "_c_mutinyRoutRate": "士气归零哗变时部队解散的兵力比例，万分比。3000 = 30%。",
+
+  "stabilityDecayPerMonth": 500,
+  "_c_stabilityDecayPerMonth": "稳定度每月自然衰减，万分比，作用于 Stability 值本身的百分比。500 = 每月衰减 5%。注意任务书原表写的是 stabilityNaturalRecovery（自然恢复，点/月），语义相反，此处以契约为准；对应的点数值见 extendedBalance。",
+
+  "baseRecruitCostSilver": 3,
+  "_c_baseRecruitCostSilver": "每征一名士兵消耗的银两（绝对数量）。任务书 recruitCostSilverPerSoldier = 3。",
+
+  "baseRecruitCostGrain": 2,
+  "_c_baseRecruitCostGrain": "每征一名士兵消耗的粮草（绝对数量）。任务书 recruitCostGrainPerSoldier = 2。银粮双重要求让玩家不能只堆一种资源。",
+
+  "baseFortifyCostSilver": 200,
+  "_c_baseFortifyCostSilver": "城防每升一级的基础银两消耗（绝对数量）。守城是弱势力最可靠的拖延手段，代价不能太低。",
+
+  "baseDevelopCostSilver": 150,
+  "_c_baseDevelopCostSilver": "屯田每升一级的基础银两消耗（绝对数量）。比修城防便宜，鼓励弱势方优先发展经济。",
+
+  "loyaltyThreshold": 25,
+  "_c_loyaltyThreshold": "忠诚度阈值（绝对点数）。低于此值人才可能叛离。玩家是没落贵族，忠诚度是核心约束。",
+
+  "loyaltyDecayPerMonth": 1,
+  "_c_loyaltyDecayPerMonth": "无赏赐情况下每月忠诚衰减（绝对点数）。任务书 loyaltyDecayPerMonth = 1。",
+
+  "postTakeEffectMonths": 1,
+  "_c_postTakeEffectMonths": "人才任命到岗后需要几个月才生效（绝对月数）。设为 0 会让换任零成本，破坏用人的策略纵深。",
+
+  "maxOrdersPerFactionPerMonth": 5,
+  "_c_maxOrdersPerFactionPerMonth": "单势力每月可执行的指令总数上限（绝对数量）。用人玩法的核心闸门：人才再多每月也只能做 5 件事，所以选谁比有多少更重要。",
+
+  "specialtyBonus": {
+    "Agriculture:FarmOverseer": 2500,
+    "Agriculture:Any": 1000,
+    "Siege:General": 2000,
+    "Cavalry:General": 2000,
+    "Logistics:Any": 1500,
+    "Diplomacy:Any": 1000
+  },
+  "_c_specialtyBonus": "专长加成表，键格式为「专长:岗位」或「专长:Any」，值为万分比（2500 = +25%）。键的左半段必须是 OfficerSpecialty 枚举值，右半段必须是 PostType 枚举值或「Any」。校验器逐条检查格式与取值范围。",
+
+  "baseLoss": 3500,
+  "_c_baseLoss": "攻城战攻方基础战损率，万分比。3500 = 35%。攻方每投入 1 点兵力自损 35%。",
+
+  "baseKill": 2700,
+  "_c_baseKill": "攻城战守方基础被歼率，万分比。2700 = 27%。攻方每投入 1 点兵力能歼灭 27% 的守军。与 baseLoss 是两个独立量：前者算攻方自损，后者算守方被歼。配 baseLoss=3500 使3000 攻 1000 守、城防 500、均势统帅恰好攻陷。缺此字段校验器直接报错。",
+
+  "defenderLossFactor": 0,
+  "_c_defenderLossFactor": "【v1.2 已废弃】守方损失不再按守军规模计算，城墙保护改由 killRate 公式中的 (2 - defenseFactor) 项承担。保留字段仅为兼容旧配置，执行者应读但不得参与计算。置 0 表示已确认失效；校验器检测到 > 0 会输出告警。",
+
+  "siegeThresholdLoss": 7000,
+  "_c_siegeThresholdLoss": "攻陷/击退阈值，万分比。7000 = 70%。lossRate ≥ 此值判为击退，且必须先判击退再判攻陷。",
+
+  "fieldBattleLossFactor": 6000,
+  "_c_fieldBattleLossFactor": "野战战损乘数，万分比。6000 = 60%。野战无城墙消耗，lossRate = baseLoss × 本值/10000 × (2 - 2×commanderRatio)。",
+
+  "stalemateLossRate": 0,
+  "_c_stalemateLossRate": "【v1.2 已废弃】未决状态改为按 lossRate / killRate 正常结算，不再额外扣一次（原先的双方各损 10% 是重复计算）。保留字段仅为兼容旧配置，执行者应读但不得参与计算。置 0 表示已确认失效。",
+
+  "armyMonthlyGrainPerSoldier": 200,
+  "_c_armyMonthlyGrainPerSoldier": "每兵每月耗粮，万分比。200 = 0.02。5000 兵每月耗 100 粮。契约 v1.2 已把该字段从 /1000 口径统一为万分比，本文件不再有例外口径。耗粮不是主要瓶颈，兵源才是。",
+
+  "siegeDefeatRoutRate": 10000,
+  "_c_siegeDefeatRoutRate": "攻陷后守军逃散比例，万分比。10000 = 100%，即守军全军逃散回邻近城。沿用任务书 R2 表格的 100（原为百分数），转成万分比后含义是守军一个不剩。若实测发现守城方毫无抵抗能力，应下调到 3000-5000。这属于数值定稿范畴，不是契约问题。",
+
+  "extendedBalance": {
+    "stabilityNaturalRecovery": 5,
+    "moraleNaturalRecovery": 3,
+    "moraleDecayWhenPeace": 2,
+    "rewardCostSilver": 100,
+    "rewardLoyaltyGain": 8,
+    "expectedPlayerCityCount": 2,
+    "_c_stabilityNaturalRecovery": "稳定度自然恢复量（绝对点数/月）。任务书原表字段，契约 BalanceConfig 无对应项。裁决：03 包不需要读它，因此不进契约，写在 02 自己的模型 ExtendedBalance 里。",
+    "_c_moraleNaturalRecovery": "士气自然恢复量（绝对点数/月）。同上，02 自己的实现细则。",
+    "_c_moraleDecayWhenPeace": "和平状态下的士气衰减（绝对点数/月）。契约的 moraleDecayPerMonth 与之同义，此处保留任务书原字段名以便追溯。",
+    "_c_rewardCostSilver": "赏赐一次消耗的银两（绝对数量）。任务书 rewardCostSilver = 100。ActionType.Reward 在契约里是保留位，骨架阶段不实现，但数值先落库。",
+    "_c_rewardLoyaltyGain": "赏赐一次提升的忠诚度（绝对点数）。任务书 rewardLoyaltyGain = 8。",
+    "_c_expectedPlayerCityCount": "玩家势力应当拥有的城池数量期望值（绝对数量）。这是校验器的硬校验依据：玩家势力实际城池数与此不符即报错。不写死在代码里，改设计时只改这里。取值 2 来自设计决策 D14——玩家起点是没落贵族，两座相邻小城。"
+  }
+}

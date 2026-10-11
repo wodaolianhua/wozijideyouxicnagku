@@ -67,20 +67,25 @@ public static class PlaceholderNumbers
     public const int FarmPerSilver = 1;
 
     /// <summary>
-    /// 休整时每月恢复的士气点数的分母（恢复量 = 当前士气 / 本值）。
-    /// </summary>
-    /// <remarks>
-    /// TODO(设计): 待数值框架定稿后替换为固定恢复量或按兵力计算的公式。
-    /// </remarks>
-    public const int MoraleRecoverDivisor = 2;
-
-    /// <summary>
     /// 出兵时每名士兵的士气消耗（防止无限连续出兵）。
     /// </summary>
     /// <remarks>
     /// TODO(设计): 待战斗系统定稿后替换。
     /// </remarks>
     public const int MoraleCostPerDispatchedSoldier = 1;
+
+    /// <summary>
+    /// 稳定度过低时势力民心每月的额外流失（绝对点数）。
+    /// </summary>
+    /// <remarks>
+    /// 【为什么它不在 BalanceConfig 里】它属于「势力民心」而非「部队士气」，
+    /// 而契约尚未给势力民心衰减提供配置字段。
+    /// 契约 <c>MoraleDecayPerMonth</c> 属<b>部队士气</b>自然恢复
+    /// （4_数值框架.md 5.2，作用对象是 <c>Army.Morale</c>），
+    /// 拿它去衰减 <c>Resources.Morale</c>（势力民心）是把两个不同物混为一谈。
+    /// <para>TODO(设计): 01 包为势力民心衰减定稿并加入 BalanceConfig 后，本常量删除。</para>
+    /// </remarks>
+    public const int UnstableMoraleLoss = 2;
 
     /// <summary>
     /// 玩家势力仅剩此数量城池时判定为胜利。

@@ -7,27 +7,31 @@
 // ============================================================================
 
 using StrategyGame.Contracts;
+using StrategyGame.Core.Systems;
 
 namespace StrategyGame.Core.Resolvers;
 
 /// <summary>
-/// 休整结算器：恢复部队士气，标记本月已休整以防反复刷士气。
-/// </summary>
-/// <remarks>
-/// 校验顺序：
-///   1. 执行者合法 → Rejected_InvalidActor
-///   2. 部队存在且属于该势力 → Rejected_InvalidTarget
-///   3. 本月尚未休整过 → Rejected_Cooldown
-///   4. 本月人力未超上限 → Rejected_InsufficientCapacity
-/// </remarks>
-public sealed class RestResolver : ResolverBase
+    /// 休整结算器：恢复部队士气，标记本月已休整以防反复刷士气。
+    /// </summary>
+    /// <remarks>
+    /// 校验顺序：
+    ///   1. 执行者合法 → Rejected_InvalidActor
+    ///   2. 部队存在且属于该势力 → Rejected_InvalidTarget
+    ///   3. 本月尚未休整过 → Rejected_Cooldown
+    ///   4. 本月人力未超上限 → Rejected_InsufficientCapacity
+    /// </remarks>
+    public sealed class RestResolver : ResolverBase
 {
+    private readonly MoraleSystem _morale;
+
     /// <summary>创建休整结算器。</summary>
     /// <param name="config">数值配置。</param>
     /// <param name="random">可播种随机源。当前不涉及随机，保留参数以免后续改签名。</param>
     public RestResolver(BalanceConfig config, IRandom? random = null)
         : base(config, random)
     {
+        _morale = new MoraleSystem(config);
     }
 
     /// <summary>固定为 <see cref="ActionType.Rest"/>。</summary>
@@ -88,7 +92,7 @@ public sealed class RestResolver : ResolverBase
         var faction = state.GetFaction(factionId)!;
         var army = state.GetArmy(order.TargetId)!;
 
-        int newMorale = CalculateMoraleAfterRest(army);
+        int newMorale = _morale.CalculateMoraleAfterRest(army);
 
         var result = ResolveResult.Ok()
             .WithDelta(
@@ -110,21 +114,6 @@ public sealed class RestResolver : ResolverBase
                 state.Month);
 
         return result;
-    }
-
-    /// <summary>
-    /// 计算休整后的士气。
-    /// </summary>
-    /// <param name="army">部队。只读。</param>
-    /// <returns>休整后士气，上限为 <see cref="Army.MoraleMax"/>。</returns>
-    /// <remarks>
-    /// 恢复量 = 当前士气 / MoraleRecoverDivisor，即越疲惫恢复越慢。
-    /// TODO(设计): 待数值框架定稿后替换为固定值或按兵力计算的公式。
-    /// </remarks>
-    private static int CalculateMoraleAfterRest(Army army)
-    {
-        int recovery = army.Morale / PlaceholderNumbers.MoraleRecoverDivisor;
-        return Math.Min(army.MoraleMax, army.Morale + recovery);
     }
 
     /// <summary>

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ============================================================================
+    ConfigCheck —— 命令行配置校验工具
+    ============================================================================
+    【为什么需要它】
+    策划改完 JSON 后不应该去跑单元测试才知道写错了。给他一条命令，
+    秒级得到「哪个文件、哪个字段、什么问题」的中文报告。
+
+    用法：
+      dotnet run (校验正式数据)
+      dotnet run 数据目录        (校验指定目录)
+      加 quiet 参数           (只看结论)
+
+    退出码：0 = 通过（可能有警告）；1 = 存在错误，禁止启动；2 = 加载失败。
+    ============================================================================
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>ConfigCheck</AssemblyName>
+    <RootNamespace>StrategyGame.Data.Tools</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\StrategyGame.Data\StrategyGame.Data.csproj" />
+    <ProjectReference Include="..\..\src\StrategyGame.Contracts\StrategyGame.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

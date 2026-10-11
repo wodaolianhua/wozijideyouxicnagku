@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ============================================================================
+    StrategyGame.Contracts —— 契约编译工程
+    ============================================================================
+    【为什么这个文件存在】
+    契约文件夹（接口契约_共享类型/）是只读的，里面只有 .cs 源码，没有 .csproj。
+    为了能编译它，又不往那个只读目录里写任何东西，这里用 <Compile Include> 以
+    链接方式引用那三个 .cs 文件。
+
+    【硬规则】
+    1. 本工程不复制、不改写契约源码，永远保持链接。
+    2. 不启用默认编译项，避免把 bin/obj 产物扫进来。
+    3. 若契约源被分发脚本更新，本工程无需任何修改即可跟上。
+    ============================================================================
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>StrategyGame.Contracts</AssemblyName>
+    <RootNamespace>StrategyGame.Contracts</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <!-- 契约源码里存在一个 U+FFFD 替换字符（Interfaces.cs 第 28 行注释内），
+         它在 XML 文档注释中，不影响编译语义；此处只关闭文档生成以免警告噪声。 -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\接口契约_共享类型\Enums.cs" Link="Enums.cs" />
+    <Compile Include="..\..\接口契约_共享类型\Models.cs" Link="Models.cs" />
+    <Compile Include="..\..\接口契约_共享类型\Interfaces.cs" Link="Interfaces.cs" />
+  </ItemGroup>
+
+</Project>

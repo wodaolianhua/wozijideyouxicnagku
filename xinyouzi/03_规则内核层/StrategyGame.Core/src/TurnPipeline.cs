@@ -26,6 +26,7 @@ public sealed class TurnPipeline : ITurnPipeline
     private readonly CommandProcessor _commandProcessor;
     private readonly IStateApplier _applier;
     private readonly EconomySystem _economy;
+    private readonly MoraleSystem _morale;
     private readonly VictoryChecker _victoryChecker;
     private readonly Func<WorldState, OfficerEventSystem>? _eventSystemFactory;
     private readonly IFactionPlanner? _planner;
@@ -57,6 +58,7 @@ public sealed class TurnPipeline : ITurnPipeline
         ArgumentNullException.ThrowIfNull(balanceConfig);
 
         _economy = new EconomySystem(balanceConfig);
+        _morale = new MoraleSystem(balanceConfig);
         _victoryChecker = new VictoryChecker();
         _eventSystemFactory = eventSystemFactory;
         _planner = planner;
@@ -86,8 +88,13 @@ public sealed class TurnPipeline : ITurnPipeline
         // ---------- 第 2 步：经济结算 ----------
         ApplyDeltas(state, _economy.ResolveGrainIncome(state));
 
-        // ---------- 第 3 步：民心 / 稳定 ----------
+        // ---------- 第 3 步：民心 / 稳定 / 部队士气 ----------
         ApplyDeltas(state, _economy.ResolveMoraleAndStability(state));
+
+        // 部队士气（Army.Morale）月度结算：自然恢复 + 和平腐化 + 哗变。
+        // 【注意】它与上一行的势力民心（Resources.Morale）是两个不同的东西，
+        // 契约里两者同名。详见 MoraleSystem 文件头的命名陷阱说明。
+        RunArmyMorale(state, result);
 
         // ---------- 第 4 步：基建推进 ----------
         ApplyDeltas(state, _economy.ResolveInfrastructure(state));
@@ -96,6 +103,9 @@ public sealed class TurnPipeline : ITurnPipeline
 
         // ---------- 第 5 步：兵源结算 ----------
         ApplyDeltas(state, _economy.ResolveSoldierIncome(state));
+
+        // 驻军粮耗与兵源同属本月结算（5_指令字典.md Dispatch 条目）。
+        ApplyDeltas(state, _economy.ResolveArmyGrainUpkeep(state));
 
         // ---------- 第 6 步：人物事件 ----------
         RunOfficerEvents(state, result);
@@ -122,6 +132,51 @@ public sealed class TurnPipeline : ITurnPipeline
         result.Snapshot = state.Clone();
 
         return result;
+    }
+
+    /// <summary>
+    /// 部队士气月度结算，并补齐哗变事件。
+    /// </summary>
+    /// <param name="state">世界状态。</param>
+    /// <param name="result">本回合结果，事件将累加其中。</param>
+    /// <remarks>
+    /// Delta 与事件分两步产出：Delta 是状态变化，事件是玩家要看见的历史。
+    /// 先算出 Delta，再据其内容判断哪些部队哗变了，避免读改写 state。
+    /// </remarks>
+    private void RunArmyMorale(WorldState state, TurnResult result)
+    {
+        var deltas = _morale.ResolveMonthlyMorale(state);
+        if (deltas.Count == 0)
+        {
+            return;
+        }
+
+        ApplyDeltas(state, deltas);
+
+        // 哗变事件：HasMutiniedThisMonth 由 0 变 1 的部队即为本月哗变者。
+        foreach (var delta in deltas)
+        {
+            if (delta.TargetType != DeltaTarget.Army
+                || delta.Field != DeltaField.ArmyHasMutiniedThisMonth)
+            {
+                continue;
+            }
+
+            var army = state.GetArmy(delta.TargetId);
+            if (army == null)
+            {
+                continue;
+            }
+
+            var evt = _morale.BuildMutinyEvent(state, army.Id);
+            if (evt == null)
+            {
+                continue;
+            }
+
+            state.EventLog.Add(evt);
+            result.Events.Add(evt);
+        }
     }
 
     /// <summary>

@@ -11,14 +11,25 @@ namespace StrategyGame.Contracts;
 //  资源与状态
 // ============================================================================
 
-/// <summary>势力资源。全部为整数，禁止浮点（浮点累加会产生误差）。</summary>
+/// <summary>势力资源。全部为整数，禁止浮点（浮点累加会产生误差）。
+///
+/// 【命名陷阱警告】这里的 <see cref="Morale"/> 是<b>势力民心</b>（0-100，全势力一个值），
+/// 而 <see cref="Army.Morale"/> 是<b>部队士气</b>（0-100，每支部队一个值）。
+/// 两者<b>同名但不同物</b>，且作用完全不同：
+/// 势力民心影响 Stability 与兵源，部队士气影响战损倍率与哗变。
+/// 早期设计文档曾把两者混为一谈，导致"士气"系统无法实现。
+/// 实现时请用 <see cref="Popularity"/>（民心）指代本字段，代码中避免裸用 Morale。</summary>
 public sealed class Resources
 {
     public int Grain { get; set; }      // 粮
     public int Silver { get; set; }     // 银
     public int Soldier { get; set; }    // 可用兵源
-    public int Morale { get; set; }     // 民心 / 士气
-    public int Stability { get; set; }  // 稳定度
+
+    /// <summary>势力民心 0-100。<b>注意：不是部队士气。</b>建议在实现层重命名为 Popularity。</summary>
+    public int Morale { get; set; }
+
+    /// <summary>稳定度 0-100，影响兵源产出倍率（&lt;30 减半，&lt;15 触发动乱）。</summary>
+    public int Stability { get; set; }
 
     public Resources Clone() => new()
     {
@@ -62,7 +73,12 @@ public sealed class Army
     public int OwnerFactionId { get; set; }
     public int OfficerId { get; set; }        // 统帅，-1 表示无
     public int Soldiers { get; set; }
+
+    /// <summary>部队士气 0-100。<b>注意：不是势力民心（见 Resources.Morale）。</b>
+    /// 作用：决定 <see cref="GetMoralePenalty"/> 的战损倍率，以及归零时的哗变风险。
+    /// 见 4_数值框架.md 5.2「士气系统」。</summary>
     public int Morale { get; set; }
+
     public int MoraleMax { get; set; }
     public int PositionCityId { get; set; }
     /// <summary>移动目的地城池 Id，-1 表示无移动计划。</summary>
@@ -71,13 +87,41 @@ public sealed class Army
     /// <summary>本月已执行过 Rest，防止反复休整刷士气。</summary>
     public bool HasRestedThisMonth { get; set; }
 
+    /// <summary>连续未参与战斗的月数。达到 <see cref="BalanceConfig.MoraleDecayNoBattleThreshold"/>
+    /// 后每月触发 "和平腐化" 士气衰减。这是 D12验证问题的一个抓手：
+    /// 让"该休整还是该趁胜追击"成为一个真实的战略选择。</summary>
+    public int MonthsWithoutBattle { get; set; }
+
+    /// <summary>士气是否已触发哗变（同一月内防止重复触发）。</summary>
+    public bool HasMutiniedThisMonth { get; set; }
+
     public Army Clone() => new()
     {
         Id = Id, OwnerFactionId = OwnerFactionId, OfficerId = OfficerId,
         Soldiers = Soldiers, Morale = Morale, MoraleMax = MoraleMax,
         PositionCityId = PositionCityId, TargetCityId = TargetCityId,
-        Stance = Stance, HasRestedThisMonth = HasRestedThisMonth
+        Stance = Stance, HasRestedThisMonth = HasRestedThisMonth,
+        MonthsWithoutBattle = MonthsWithoutBattle,
+        HasMutiniedThisMonth = HasMutiniedThisMonth
     };
+
+    /// <summary>士气惩罚倍率（万分比）。10000 = 无惩罚。
+    /// <para>阈值与倍率来源：4_数值框架.md 5.2「低士气惩罚」——
+    /// ≥60 无罚、30-59 ×1.5、10-29 ×2.5、&lt;10 ×4.0。</para>
+    /// <para><b>档位是代入实算定的，不是拍脑袋</b>：原设计 ×1.2/1.5/2.0 在实测中
+    /// 士气从 60 掉到 10 战局结果完全不变（仍是攻陷，只是多烧点兵），
+    /// 士气系统形同装饰。×1.5/2.5/4.0 才能让「士气 20」时
+    /// 均势攻城从攻陷翻为击退 —— 这才构��真实压力。</para>
+    /// <para><b>实现注意</b>：本倍率必须在与 SiegeThresholdLoss 比较<b>之前</b>乘上 lossRate，
+    /// 且<b>不得</b>对 lossRate 做 min(x, 1.0) 钳制——否则低士气反而不受影响。</para>
+    /// </summary>
+    public int GetMoralePenalty()
+    {
+        if (Morale >= 60) return 10000;
+        if (Morale >= 30) return 15000;
+        if (Morale >= 10) return 25000;
+        return 40000;
+    }
 }
 
 /// <summary>

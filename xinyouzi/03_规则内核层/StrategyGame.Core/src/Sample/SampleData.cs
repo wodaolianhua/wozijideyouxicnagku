@@ -23,18 +23,37 @@ namespace StrategyGame.Core.Sample;
 /// </remarks>
 public static class SampleData
 {
-    /// <summary>示例平衡配置。占位数值，非设计数值。</summary>
+    /// <summary>创建示例平衡配置。取 3_战斗系统设计.md 第八节与4_数值框架.md 5.2 的基准值。</summary>
     /// <returns>一份可直接驱动结算的平衡配置。</returns>
     /// <remarks>
-    /// TODO(设计): 待 02 内容数据层交付 config.json 后，本方法改为调用 IConfigLoader。
+    /// 【v1.2 刻度】所有比率类字段一律万分比（10000 = 100%）。
+    /// 【重要】真正的数值表由 02 包写入 <c>assets/data/config.json</c>，
+    /// 本方法仅保证 03 包能独立编译独立测试。
     /// </remarks>
     public static BalanceConfig CreateBalance()
         => new()
         {
-            GrainPerPopPerMonth = 10,
-            SoldierPerPopPerMonth = 2,
-            MoraleDecayPerMonth = 1,
+            // ===== 经济（万分比）=====
+            // GrainPerPopPerMonth = 800 → 3000 人口城月产 240 粮。
+            GrainPerPopPerMonth = 800,
+            // SoldierPerPopPerMonth = 5000 → 3000 人口、Stability 60 = 90 兵/月。
+            SoldierPerPopPerMonth = 5000,
+            // ArmyMonthlyGrainPerSoldier = 200 → 每人每月 0.02 粮。
+            ArmyMonthlyGrainPerSoldier = 200,
+
+            // ===== 士气（绝对点数，非比率）=====
+            MoraleDecayPerMonth = 3,
+            MoraleDecayNoBattleThreshold = 6,
+            MoraleDecayNoBattlePerMonth = 2,
+            MoraleGainOnCapture = 10,
+            MoraleLossOnRepel = 12,
+            MoraleLossOnStalemate = 3,
+            MoraleLossOnDefend = 4,
+            MutinyRoutRate = 3000,
+
             StabilityDecayPerMonth = 1,
+
+            // ===== 绝对数量（银/粮/点）=====
             BaseRecruitCostSilver = 50,
             BaseRecruitCostGrain = 30,
             BaseFortifyCostSilver = 40,
@@ -43,6 +62,20 @@ public static class SampleData
             LoyaltyDecayPerMonth = 1,
             PostTakeEffectMonths = 1,
             MaxOrdersPerFactionPerMonth = 5,
+
+            // ===== 战斗系统系数（万分比）=====
+            // 来源：3_战斗系统设计.md 第八节「系数清单」。
+            BaseLoss = 3500,
+            BaseKill = 2700,
+            SiegeThresholdLoss = 7000,
+            FieldBattleLossFactor = 6000,
+            SiegeDefeatRoutRate = 0,
+
+            // [已废弃 v1.2] 以下两项不参与任何计算。
+            // 此处显式置 0，避免 ConfigValidator 报「字段已失效」告警。
+            DefenderLossFactor = 0,
+            StalemateLossRate = 0,
+
             SpecialtyBonus = new Dictionary<string, int>
             {
                 { "Agriculture:FarmOverseer", 20 },
@@ -242,28 +275,32 @@ public static class SampleData
 
     /// <summary>创建示例事件库。</summary>
     /// <returns>事件模板列表。</returns>
+    /// <remarks>
+    /// 【v1.2】<c>GameEventTemplate.Id</c> 已从 string 改为 int（跨语言 JSON 兼容）。
+    /// 概率为万分比，10000 = 100%。同 Category 概率之和不得超过 6000。
+    /// </remarks>
     public static List<GameEventTemplate> CreateEvents()
         => new()
         {
             new GameEventTemplate
             {
-                Id = "ev.talent.appear",
+                Id = 1001,
                 Category = EventCategory.Personnel,
-                Probability = 10,
+                Probability = 1000,
                 Message = "有贤士途经此地，求访无果。",
             },
             new GameEventTemplate
             {
-                Id = "ev.harvest.good",
+                Id = 1002,
                 Category = EventCategory.Economy,
-                Probability = 15,
+                Probability = 1500,
                 Message = "风调雨顺，粮产喜人。",
             },
             new GameEventTemplate
             {
-                Id = "ev.plague",
+                Id = 1003,
                 Category = EventCategory.Disaster,
-                Probability = 5,
+                Probability = 500,
                 Message = "疫病流行，人心惶惶。",
             },
         };

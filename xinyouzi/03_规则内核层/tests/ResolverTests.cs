@@ -248,27 +248,40 @@ public sealed class DispatchResolverTests
 {
     private static readonly BalanceConfig Config = SampleData.CreateBalance();
 
-    /// <summary>成功路径：向敌方城池出兵，进入围城状态。</summary>
+    /// <summary>成功路径：进攻敌方城池，触发战斗结算。</summary>
+    /// <remarks>
+    /// 【语义变更】战斗系统落地后，出兵不再只是「移动 + 标记 besieged」，
+    /// 而是完整跑一遍攻城战。守军被大量弱攻时会被打光，城池直接易主，
+    /// 因此本例改为断言城池易主而非进入围城状态。
+    /// </remarks>
     [Fact]
-    public void Resolve_ToEnemyCity_ShouldBesiege()
+    public void Resolve_ToEnemyCity_ShouldResolveBattle()
     {
         var state = SampleData.CreateWorld();
         var resolver = new DispatchResolver(Config);
 
         // 洛阳（0 owned by 玩家）→ 长安（1 owned by 魏），0 与 1 相邻
-        var order = Order.CreatePlayerOrder(ActionType.Dispatch, target: 1, amount: 100, secondary: 0);
+        var order = Order.CreatePlayerOrder(ActionType.Dispatch, target: 1, amount: 300, secondary: 0);
 
         var result = resolver.Resolve(state, order);
 
         Assert.Equal(ResolveResultCode.Success, result.Code);
         Assert.NotEmpty(result.Events);
 
-        StateDelta stanceDelta = result.Deltas.Single(d => d.Field == DeltaField.ArmyStance);
-        Assert.Equal((int)ArmyStance.Besieging, stanceDelta.NewValue);
+        // 守军仅 250 人，300 人猛攻足以打光 → 攻陷
+        Assert.Contains(result.Deltas, d =>
+            d.TargetType == DeltaTarget.City
+            && d.TargetId == 1
+            && d.Field == DeltaField.CityOwnerFactionId);
 
-        StateDelta soldierDelta = result.Deltas.Single(d => d.Field == DeltaField.ArmySoldiers);
+        // 投入 300 人，战斗后存活 = 300 − 战损，不得凭空消失
+        StateDelta soldierDelta = result.Deltas.Single(
+            d => d.TargetType == DeltaTarget.Army
+                 && d.TargetId == 0
+                 && d.Field == DeltaField.ArmySoldiers);
+
         Assert.Equal(300, soldierDelta.OldValue);
-        Assert.Equal(200, soldierDelta.NewValue);
+        Assert.InRange(soldierDelta.NewValue, 1, 300);
     }
 
     /// <summary>成功路径：向自家城池调兵，进入移动状态。</summary>
@@ -305,19 +318,26 @@ public sealed class DispatchResolverTests
         Assert.False(string.IsNullOrWhiteSpace(result.Message));
     }
 
-    /// <summary>拒绝路径：目标已被敌方占据 → RejectedTargetOccupied。</summary>
+    /// <summary>
+    /// 拒绝路径：目标已被围困 → RejectedTargetOccupied。
+    /// </summary>
+    /// <remarks>
+    /// 【语义变更】战斗系统落地后，「目标城内有敌军」不再是拒绝理由——
+    /// 那正是攻城战的正常场景。真正的拒绝条件是「已被围困」，
+    /// 即已有部队处于 Besieging 状态。故本例改为让敌军处于围城姿态。
+    /// </remarks>
     [Fact]
-    public void Resolve_OccupiedTarget_ShouldReject()
+    public void Resolve_UnderSiege_ShouldReject()
     {
         var state = SampleData.CreateWorld();
         var resolver = new DispatchResolver(Config);
 
-        // 宛城（3）里放一支敌军，使其被敌方占据
+        // 宛城（3）里放一支正在围城的敌军，使其处于「已被围困」状态
         state.Armies.Add(new Army
         {
             Id = 9, OwnerFactionId = 1, OfficerId = 2,
             Soldiers = 100, Morale = 50, MoraleMax = 100,
-            PositionCityId = 3, TargetCityId = -1, Stance = ArmyStance.Idle,
+            PositionCityId = 3, TargetCityId = 3, Stance = ArmyStance.Besieging,
         });
 
         var order = Order.CreatePlayerOrder(ActionType.Dispatch, target: 3, amount: 50, secondary: 0);

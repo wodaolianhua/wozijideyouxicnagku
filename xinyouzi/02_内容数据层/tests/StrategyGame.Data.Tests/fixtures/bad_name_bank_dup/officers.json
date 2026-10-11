@@ -1,0 +1,183 @@
+{
+  "_comment": "人才初始表。玩家是「没落贵族」，初始人才必须明显偏弱：Command / Governance 全部落在 40-55 区间（这是玩法设计要求，不是随手填）。玩家人才忠诚度为 65——他们是跟玩家一起落难的旧人，忠诚但能力平平。AI 势力的人才明显更强，构成对比。专长必须覆盖至少 4 种，且必须包含 Agriculture / Siege / Logistics 各至少 1 名，以及 1 名高 Command 的猛将。",
+  "_todos": [
+    "TODO(数值): 全部属性为占位值，01_设计规格层数值框架尚未定稿。玩家区间 40-55 来自设计决策 D14（玩家起点为没落贵族），后续可在区间内微调。",
+    "TODO(命名): 所有人才名使用占位名 Officer_NN，遵守任务书 R7「禁止真实人物名」。",
+    "TODO(玩法): 猛将（高 Command）当前放在 AI 势力名下。若后续希望玩家也能招募到猛将，需要新增在野人才条目并配合 RecruitOfficer 行动（P1 阶段）。",
+    "TODO(契约): 契约 OfficerTemplate 不含归属势力字段，归属与任职通过同文件的 officerStates 数组表达。"
+  ],
+
+  "officers": [
+    {
+      "id": 1,
+      "name": "Officer_01",
+      "command": 48,
+      "governance": 52,
+      "loyalty": 65,
+      "age": 41,
+      "specialty": "Agriculture",
+      "_c_id": "人才唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_name": "占位人才名。TODO(命名) 待替换。玩家招揽到的人才可由玩家命名（契约 NamingScope.RecruitedOfficers = true）。",
+      "_c_command": "统率值 0-100。玩家势力人才必须在 40-55 区间。",
+      "_c_governance": "政务值 0-100。玩家势力人才必须在 40-55 区间。",
+      "_c_loyalty": "忠诚度 0-100。老部下统一为 65，见下方说明。",
+      "_c_age": "年龄（整数，合理区间 16-80）。",
+      "_c_specialty": "专长枚举。取值必须是 OfficerSpecialty 之一，且需在 specialties.json 中有对应条目。"
+    },
+    {
+      "id": 2,
+      "name": "Officer_02",
+      "command": 55,
+      "governance": 44,
+      "loyalty": 65,
+      "age": 35,
+      "specialty": "Siege",
+      "_c_id": "人才唯一整数 ID。",
+      "_c_name": "占位人才名。TODO(命名) 待替换。",
+      "_c_command": "统率值 0-100。玩家人才中最高的一位，仍未超过上限 55。",
+      "_c_governance": "政务值 0-100。",
+      "_c_loyalty": "忠诚度 0-100。老部下统一 65。",
+      "_c_age": "年龄（整数）。",
+      "_c_specialty": "专长枚举，攻城。玩家阵营唯一的攻城人才，任务书 R3 要求必须覆盖 Siege。"
+    },
+    {
+      "id": 3,
+      "name": "Officer_03",
+      "command": 43,
+      "governance": 50,
+      "loyalty": 65,
+      "age": 52,
+      "specialty": "Logistics",
+      "_c_id": "人才唯一整数 ID。",
+      "_c_name": "占位人才名。TODO(命名) 待替换。",
+      "_c_command": "统率值 0-100。玩家人才中最弱的一位。",
+      "_c_governance": "政务值 0-100。",
+      "_c_loyalty": "忠诚度 0-100。老部下统一 65。",
+      "_c_age": "年龄（整数）。年纪最大，成长空间有限。",
+      "_c_specialty": "专长枚举，后勤。任务书 R3 要求必须覆盖 Logistics。"
+    },
+    {
+      "id": 4,
+      "name": "Officer_04",
+      "command": 76,
+      "governance": 58,
+      "loyalty": 80,
+      "age": 34,
+      "specialty": "Cavalry",
+      "_c_id": "人才唯一整数 ID。",
+      "_c_name": "占位人才名。TODO(命名) 待替换。",
+      "_c_command": "统率值 0-100。猛将，76 远超玩家上限 55，形成鲜明对比。",
+      "_c_governance": "政务值 0-100。",
+      "_c_loyalty": "忠诚度 0-100。AI 势力人才忠诚更高。",
+      "_c_age": "年龄（整数）。正值壮年。",
+      "_c_specialty": "专长枚举，骑兵。任务书 R3 要求的高 Command 猛将。"
+    },
+    {
+      "id": 5,
+      "name": "Officer_05",
+      "command": 66,
+      "governance": 71,
+      "loyalty": 78,
+      "age": 47,
+      "specialty": "Agriculture",
+      "_c_id": "人才唯一整数 ID。",
+      "_c_name": "占位人才名。TODO(命名) 待替换。",
+      "_c_command": "统率值 0-100。",
+      "_c_governance": "政务值 0-100。中原霸主阵营最擅长政务的人才。",
+      "_c_loyalty": "忠诚度 0-100。",
+      "_c_age": "年龄（整数）。",
+      "_c_specialty": "专长枚举，农业。任务书 R3 要求必须覆盖 Agriculture。"
+    },
+    {
+      "id": 6,
+      "name": "Officer_06",
+      "command": 61,
+      "governance": 39,
+      "loyalty": 72,
+      "age": 29,
+      "specialty": "Siege",
+      "_c_id": "人才唯一整数 ID。",
+      "_c_name": "占位人才名。TODO(命名) 待替换。",
+      "_c_command": "统率值 0-100。边疆异族擅长冲锋，政务偏弱。",
+      "_c_governance": "政务值 0-100。偏低，体现边疆势力治理能力不足。",
+      "_c_loyalty": "忠诚度 0-100。",
+      "_c_age": "年龄（整数）。",
+      "_c_specialty": "专长枚举，攻城。"
+    }
+  ],
+
+  "officerStates": [
+    {
+      "officerId": 1,
+      "ownerFactionId": 0,
+      "postCityId": 1,
+      "post": "CityGovernor",
+      "isAlive": true,
+      "_c_officerId": "对应 officers[].id。必须存在，否则开局状态无法组装。",
+      "_c_ownerFactionId": "归属势力 ID，指向 factions.json。-1 表示在野人才（未被招揽）。0 = 玩家势力。",
+      "_c_postCityId": "任职城池 ID，指向 cities.json。-1 表示未任职。",
+      "_c_post": "当前岗位枚举，取值必须是 PostType 之一。",
+      "_c_isAlive": "是否在世。开局为 false 的人不进入可用人才列表。"
+    },
+    {
+      "officerId": 2,
+      "ownerFactionId": 0,
+      "postCityId": 1,
+      "post": "General",
+      "isAlive": true,
+      "_c_officerId": "对应 officers[].id。",
+      "_c_ownerFactionId": "归属势力 ID。0 = 玩家势力。",
+      "_c_postCityId": "任职城池 ID。玩家只有城池 1 一座城，因此全部玩家人才都在此任职。",
+      "_c_post": "当前岗位，将领。专长 Siege 配 General 岗位，攻城加成最高。",
+      "_c_isAlive": "是否在世。"
+    },
+    {
+      "officerId": 3,
+      "ownerFactionId": 0,
+      "postCityId": -1,
+      "post": "None",
+      "isAlive": true,
+      "_c_officerId": "对应 officers[].id。",
+      "_c_ownerFactionId": "归属势力 ID。0 = 玩家势力。",
+      "_c_postCityId": "-1 表示未任职。这名后勤老部下暂时闲置，玩家需要决定如何使用他——这正是「用人」的决策点。",
+      "_c_post": "未任职时为 None。",
+      "_c_isAlive": "是否在世。"
+    },
+    {
+      "officerId": 4,
+      "ownerFactionId": 1,
+      "postCityId": 3,
+      "post": "General",
+      "isAlive": true,
+      "_c_officerId": "对应 officers[].id。",
+      "_c_ownerFactionId": "归属势力 ID。1 = 中原霸主。",
+      "_c_postCityId": "任职城池 ID。",
+      "_c_post": "当前岗位，将领。",
+      "_c_isAlive": "是否在世。"
+    },
+    {
+      "officerId": 5,
+      "ownerFactionId": 1,
+      "postCityId": 3,
+      "post": "FarmOverseer",
+      "isAlive": true,
+      "_c_officerId": "对应 officers[].id。",
+      "_c_ownerFactionId": "归属势力 ID。1 = 中原霸主。",
+      "_c_postCityId": "任职城池 ID。",
+      "_c_post": "当前岗位，屯田使。专长 Agriculture 配 FarmOverseer，农业加成最高。",
+      "_c_isAlive": "是否在世。"
+    },
+    {
+      "officerId": 6,
+      "ownerFactionId": 2,
+      "postCityId": 5,
+      "post": "General",
+      "isAlive": true,
+      "_c_officerId": "对应 officers[].id。",
+      "_c_ownerFactionId": "归属势力 ID。2 = 边疆异族。",
+      "_c_postCityId": "任职城池 ID。",
+      "_c_post": "当前岗位，将领。",
+      "_c_isAlive": "是否在世。"
+    }
+  ]
+}

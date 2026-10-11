@@ -1,0 +1,76 @@
+{
+  "_comment": "势力初始表。3 个势力：0 = 玩家（没落贵族），1 = 中原霸主，2 = 边疆异族。每个势力的 capitalCityId 必须与 cities.json 中 isCapital=true 的城池一致，且该城必须属于自己。IsPlayer=true 的势力必须恰好一个。资源全部为整数，禁止浮点。",
+  "_todos": [
+    "TODO(数值): 玩家势力资源为占位值。定位是没落贵族：粮 1200、银 800、兵源 300，远低于另两家，撑不起前几个月的扩张。",
+    "TODO(命名): 势力名使用占位名，遵守任务书 R7「禁止真实历史地名、人物名」。",
+    "TODO(数值): Morale 与 Stability 的开局值需与 01_设计规格层对齐，当前为占位。"
+  ],
+  "factions": [
+    {
+      "id": 0,
+      "name": "Faction_01",
+      "isPlayer": true,
+      "capitalCityId": 1,
+      "resources": {
+        "grain": -500,
+        "silver": 800,
+        "soldier": 300,
+        "morale": 60,
+        "stability": 55
+      },
+      "_c_id": "势力唯一整数 ID。0 固定为玩家势力（与契约 ActorType.Player 的 ActorId 对应）。",
+      "_c_name": "占位势力名。TODO(命名) 待替换。玩家可在游戏内为自己的势力命名（契约 NamingScope.PlayerFaction = true）。",
+      "_c_isPlayer": "是否玩家势力。全局必须恰好一个为 true，多了会让存档与回放失效。",
+      "_c_capitalCityId": "首都城池 ID。必须指向一座 isCapital=true 且属于本势力的城池。",
+      "_c_resources_grain": "初始粮草（整数）。玩家只有 1200，远少于中原霸主 2600。",
+      "_c_resources_silver": "初始银两（整数）。玩家只有 800。",
+      "_c_resources_soldier": "初始可用兵源（整数，非现役兵力）。玩家只有 300。",
+      "_c_resources_morale": "初始民心/士气（整数）。",
+      "_c_resources_stability": "初始稳定度（整数）。"
+    },
+    {
+      "id": 1,
+      "name": "Faction_02",
+      "isPlayer": false,
+      "capitalCityId": 3,
+      "resources": {
+        "grain": 2600,
+        "silver": 2000,
+        "soldier": 800,
+        "morale": 75,
+        "stability": 80
+      },
+      "_c_id": "势力唯一整数 ID。1 = 中原霸主。",
+      "_c_name": "占位势力名。TODO(命名) 待替换。AI 势力不可命名（契约 NamingScope.AiFactions = false）。",
+      "_c_isPlayer": "AI 势力，为 false。",
+      "_c_capitalCityId": "首都城池 ID。指向城池 3（City_03），该城 isCapital=true 且 factionId=1。",
+      "_c_resources_grain": "初始粮草（整数）。中原霸主最富庶。",
+      "_c_resources_silver": "初始银两（整数）。中原霸主最富庶。",
+      "_c_resources_soldier": "初始可用兵源（整数）。中原霸主兵多。",
+      "_c_resources_morale": "初始民心/士气（整数）。",
+      "_c_resources_stability": "初始稳定度（整数）。"
+    },
+    {
+      "id": 2,
+      "name": "Faction_03",
+      "isPlayer": false,
+      "capitalCityId": 5,
+      "resources": {
+        "grain": 1500,
+        "silver": 900,
+        "soldier": 600,
+        "morale": 70,
+        "stability": 65
+      },
+      "_c_id": "势力唯一整数 ID。2 = 边疆异族。",
+      "_c_name": "占位势力名。TODO(命名) 待替换。",
+      "_c_isPlayer": "AI 势力，为 false。",
+      "_c_capitalCityId": "首都城池 ID。指向城池 5（City_05），该城 isCapital=true 且 factionId=2。",
+      "_c_resources_grain": "初始粮草（整数）。边疆异族居中。",
+      "_c_resources_silver": "初始银两（整数）。边疆异族银两偏少。",
+      "_c_resources_soldier": "初始可用兵源（整数）。边疆异族尚武，兵多于银。",
+      "_c_resources_morale": "初始民心/士气（整数）。",
+      "_c_resources_stability": "初始稳定度（整数）。"
+    }
+  ]
+}

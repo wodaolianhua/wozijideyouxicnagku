@@ -1,0 +1,208 @@
+{
+  "_comment": "城池初始表。原型阶段 6 座城分属 3 个势力，每势力 2 城。玩家势力的定位是「没落贵族」：起始 2 座相邻小城（城池 1、2），人口最少、资源最少，见设计决策 D14。ID 一律整数，禁止字符串 ID。相邻关系 AdjacentCityIds 必须对称：A 含 B 则 B 必须含 A，否则派兵逻辑会出现单向通道。当前布局：玩家两城 1↔2 相邻，城池 2 是玩家唯一通往外部的门户，2↔3 与 2↔4 同时卡在中原霸主腹地。",
+  "_todos": [
+    "TODO(数值): 人口、防御、等级全部为占位值，01_设计规格层数值框架尚未定稿。",
+    "TODO(命名): 所有城池名使用 City_01 形式的占位名，遵守任务书 R7「禁止真实历史地名」的要求。接入名字生成器后全局替换。"
+  ],
+  "cities": [
+    {
+      "id": 1,
+      "name": "City_01",
+      "factionId": 0,
+      "population": 3000,
+      "terrain": "Plain",
+      "isCapital": true,
+      "adjacentCityIds": [
+        2
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_name": "占位城池名。TODO(命名) 待名字生成器接入后替换。",
+      "_c_factionId": "所属势力 ID，指向 factions.json 的 factions[].id。0 = 玩家势力。",
+      "_c_population": "当前人口（整数）。与 cityStates.maxPopulation 配合构成人口上下限。",
+      "_c_terrain": "地形枚举。影响产出与战损系数，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力必须恰好有一座为 true，此为硬性校验项。玩家势力的首都是城池 1，城池 2 是陪都性质的普通城。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表。玩家两座城之间是 1↔2 的内部通路；城池 2 还连着 3、4，是玩家对外的唯一出入口。必须对称——本城列出 2，则城池 2 也必须列出本城 ID 1。"
+    },
+    {
+      "id": 2,
+      "name": "City_02",
+      "factionId": 0,
+      "population": 2800,
+      "terrain": "Hill",
+      "isCapital": false,
+      "adjacentCityIds": [
+        1,
+        3,
+        4
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_name": "占位城池名。TODO(命名) 待替换。",
+      "_c_factionId": "所属势力 ID，指向 factions.json。0 = 玩家势力。与城池 1 同属玩家，构成没落贵族的两座相邻小城。",
+      "_c_population": "当前人口（整数）。玩家两城合计 5800，仍低于中原霸主两城合计 8700。",
+      "_c_terrain": "地形枚举，丘陵。防御略高于平原，进攻略吃亏。",
+      "_c_isCapital": "非首都。玩家势力的首都是城池 1。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表。与城池 1、3、4 互为对称关系。本城是玩家势力唯一同时连通内城与外域的枢纽。"
+    },
+    {
+      "id": 3,
+      "name": "City_03",
+      "factionId": 1,
+      "population": 4500,
+      "terrain": "Plain",
+      "isCapital": true,
+      "adjacentCityIds": [
+        2,
+        4
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_name": "占位城池名。TODO(命名) 待替换。",
+      "_c_factionId": "所属势力 ID，指向 factions.json。1 = 中原霸主。",
+      "_c_population": "当前人口（整数）。中原霸主实力最强，占位值。",
+      "_c_terrain": "地形枚举，平原。",
+      "_c_isCapital": "首都。中原霸主的唯一首都。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表。与城池 2、4 对称。玩家城池 1 位于中原霸主门户之下，直接威胁它的正是本城。"
+    },
+    {
+      "id": 4,
+      "name": "City_04",
+      "factionId": 1,
+      "population": 4200,
+      "terrain": "River",
+      "isCapital": false,
+      "adjacentCityIds": [
+        2,
+        3,
+        5
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_name": "占位城池名。TODO(命名) 待替换。",
+      "_c_factionId": "所属势力 ID，指向 factions.json。1 = 中原霸主。",
+      "_c_population": "当前人口（整数）。占位值。",
+      "_c_terrain": "地形枚举，河川。粮食产量受影响。",
+      "_c_isCapital": "非首都。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表。与城池 2、3、5 对称。"
+    },
+    {
+      "id": 5,
+      "name": "City_05",
+      "factionId": 2,
+      "population": 2500,
+      "terrain": "Mountain",
+      "isCapital": true,
+      "adjacentCityIds": [
+        6
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_name": "占位城池名。TODO(命名) 待替换。",
+      "_c_factionId": "所属势力 ID，指向 factions.json。2 = 边疆异族。",
+      "_c_population": "当前人口（整数）。边疆异族人口较少但地形险要。",
+      "_c_terrain": "地形枚举，山地。易守难攻。",
+      "_c_isCapital": "首都。边疆异族的唯一首都。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表。与城池 4、6 对称。"
+    },
+    {
+      "id": 6,
+      "name": "City_06",
+      "factionId": 2,
+      "population": 2200,
+      "terrain": "Forest",
+      "isCapital": false,
+      "adjacentCityIds": [
+        5
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_name": "占位城池名。TODO(命名) 待替换。",
+      "_c_factionId": "所属势力 ID，指向 factions.json。2 = 边疆异族。",
+      "_c_population": "当前人口（整数）。占位值。",
+      "_c_terrain": "地形枚举，森林。影响部队机动与侦察。",
+      "_c_isCapital": "非首都。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表。与城池 5 对称，是边疆势力最孤立的一座城。"
+    }
+  ],
+  "cityStates": [
+    {
+      "cityId": 1,
+      "maxPopulation": 8000,
+      "defense": 150,
+      "maxDefense": 1000,
+      "fortifyLevel": 1,
+      "farmLevel": 1,
+      "_c_cityId": "对应 cities[].id。必须存在，否则开局状态无法组装。",
+      "_c_maxPopulation": "人口上限（整数）。当前人口不得超过此值。",
+      "_c_defense": "当前城防值（整数）。必须 ≤ maxDefense。",
+      "_c_maxDefense": "城防上限（整数）。城防升级的封顶值。",
+      "_c_fortifyLevel": "城防等级（整数）。影响城防成长速度。",
+      "_c_farmLevel": "屯田等级（整数）。影响农业产出速度。"
+    },
+    {
+      "cityId": 2,
+      "maxPopulation": 7000,
+      "defense": 120,
+      "maxDefense": 900,
+      "fortifyLevel": 1,
+      "farmLevel": 1,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_maxPopulation": "人口上限（整数）。占位值。",
+      "_c_defense": "当前城防值（整数）。玩家两座小城城防都很薄。",
+      "_c_maxDefense": "城防上限（整数）。",
+      "_c_fortifyLevel": "城防等级（整数）。",
+      "_c_farmLevel": "屯田等级（整数）。"
+    },
+    {
+      "cityId": 3,
+      "maxPopulation": 12000,
+      "defense": 400,
+      "maxDefense": 2000,
+      "fortifyLevel": 3,
+      "farmLevel": 3,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_maxPopulation": "人口上限（整数）。中原霸主城池上限最高。",
+      "_c_defense": "当前城防值（整数）。中原霸主开局城防显著高于玩家。",
+      "_c_maxDefense": "城防上限（整数）。",
+      "_c_fortifyLevel": "城防等级（整数）。开局就高。",
+      "_c_farmLevel": "屯田等级（整数）。开局就高。"
+    },
+    {
+      "cityId": 4,
+      "maxPopulation": 11000,
+      "defense": 350,
+      "maxDefense": 1800,
+      "fortifyLevel": 2,
+      "farmLevel": 3,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_maxPopulation": "人口上限（整数）。占位值。",
+      "_c_defense": "当前城防值（整数）。占位值。",
+      "_c_maxDefense": "城防上限（整数）。",
+      "_c_fortifyLevel": "城防等级（整数）。",
+      "_c_farmLevel": "屯田等级（整数）。"
+    },
+    {
+      "cityId": 5,
+      "maxPopulation": 7000,
+      "defense": 500,
+      "maxDefense": 1800,
+      "fortifyLevel": 3,
+      "farmLevel": 1,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_maxPopulation": "人口上限（整数）。边疆异族人口少但上限不高。",
+      "_c_defense": "当前城防值（整数）。山地城池易守难攻，城防高。",
+      "_c_maxDefense": "城防上限（整数）。",
+      "_c_fortifyLevel": "城防等级（整数）。开局就高。",
+      "_c_farmLevel": "屯田等级（整数）。边疆异族不擅屯田，起步低。"
+    },
+    {
+      "cityId": 6,
+      "maxPopulation": 6000,
+      "defense": 300,
+      "maxDefense": 1200,
+      "fortifyLevel": 2,
+      "farmLevel": 1,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_maxPopulation": "人口上限（整数）。占位值。",
+      "_c_defense": "当前城防值（整数）。占位值。",
+      "_c_maxDefense": "城防上限（整数）。",
+      "_c_fortifyLevel": "城防等级（整数）。",
+      "_c_farmLevel": "屯田等级（整数）。"
+    }
+  ]
+}

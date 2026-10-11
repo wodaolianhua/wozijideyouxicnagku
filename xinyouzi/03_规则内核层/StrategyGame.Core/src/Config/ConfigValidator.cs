@@ -51,6 +51,17 @@ public static class ConfigValidator
     public const int PopulationMax = 10_000_000;
 
     /// <summary>
+    /// 比率类字段的刻度基数。契约 v1.2 起所有比率一律万分比，10000 = 100%。
+    /// </summary>
+    public const int ProbabilityScale = 10_000;
+
+    /// <summary>同一 <see cref="EventCategory"/> 的概率之和上限（60%）。</summary>
+    public const int CategoryProbabilityCap = 6000;
+
+    /// <summary>士气字段的合理绝对点数上限（士气本身是 0-100 的量纲）。</summary>
+    public const int MoralePointMax = 100;
+
+    /// <summary>
     /// 校验整套配置，返回全部问题。
     /// </summary>
     /// <param name="balance">平衡配置。</param>
@@ -94,7 +105,6 @@ public static class ConfigValidator
 
         AddNonNegative(issues, "GrainPerPopPerMonth", balance.GrainPerPopPerMonth);
         AddNonNegative(issues, "SoldierPerPopPerMonth", balance.SoldierPerPopPerMonth);
-        AddNonNegative(issues, "MoraleDecayPerMonth", balance.MoraleDecayPerMonth);
         AddNonNegative(issues, "StabilityDecayPerMonth", balance.StabilityDecayPerMonth);
         AddNonNegative(issues, "BaseRecruitCostSilver", balance.BaseRecruitCostSilver);
         AddNonNegative(issues, "BaseRecruitCostGrain", balance.BaseRecruitCostGrain);
@@ -104,6 +114,8 @@ public static class ConfigValidator
         AddNonNegative(issues, "LoyaltyDecayPerMonth", balance.LoyaltyDecayPerMonth);
         AddNonNegative(issues, "PostTakeEffectMonths", balance.PostTakeEffectMonths);
         AddNonNegative(issues, "MaxOrdersPerFactionPerMonth", balance.MaxOrdersPerFactionPerMonth);
+
+        ValidateCombatConfig(balance, issues);
 
         if (balance.LoyaltyThreshold > OfficerAttributeMax)
         {
@@ -122,6 +134,152 @@ public static class ConfigValidator
         }
 
         ValidateSpecialtyBonuses(balance, issues);
+    }
+
+    /// <summary>
+    /// 校验战斗系数与士气系数。
+    /// </summary>
+    /// <param name="balance">平衡配置。</param>
+    /// <param name="issues">问题收集列表。</param>
+    /// <remarks>
+    /// 【刻度】v1.2 起全部为万分比：BaseLoss=3500、SiegeThresholdLoss=7000。
+    /// 【废弃字段】DefenderLossFactor / StalemateLossRate 保留仅为兼容旧 config.json。
+    /// 若配置中仍 > 0，输出一次【告警】而非【错误】——它们不参与计算，
+    /// 不该因此阻止开局；同时必须让开发者知道该清理了。
+    /// </remarks>
+    private static void ValidateCombatConfig(BalanceConfig balance, List<ConfigIssue> issues)
+    {
+        // ===== 必需项：缺失或非正数都是错误 =====
+        if (balance.BaseLoss <= 0)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "BaseLoss",
+                $"攻方基础战损率必须大于 0，当前为 {balance.BaseLoss}。"));
+        }
+
+        if (balance.BaseLoss > ProbabilityScale)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "BaseLoss",
+                $"攻方基础战损率应不超过 {ProbabilityScale}（100%），当前为 {balance.BaseLoss}。"));
+        }
+
+        // 【返工 2.10 第 1 条】BaseKill 必须存在且 > 0。
+        // 缺失时 killRate恒为 0，守军永远打不光，「攻陷」成为不可达分支。
+        if (balance.BaseKill <= 0)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "BaseKill",
+                $"守方基础被歼率必须大于 0，当前为 {balance.BaseKill}。" +
+                "该字段缺失将使守军永远无法被攻陷。"));
+        }
+        else if (balance.BaseKill > ProbabilityScale)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "BaseKill",
+                $"守方基础被歼率应不超过 {ProbabilityScale}（100%），当前为 {balance.BaseKill}。"));
+        }
+
+        if (balance.SiegeThresholdLoss <= 0 || balance.SiegeThresholdLoss > ProbabilityScale)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "SiegeThresholdLoss",
+                $"击退阈值应在 1-{ProbabilityScale}（万分比）之间，当前为 {balance.SiegeThresholdLoss}。"));
+        }
+
+        if (balance.FieldBattleLossFactor <= 0
+            || balance.FieldBattleLossFactor > ProbabilityScale)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "FieldBattleLossFactor",
+                $"野战战损乘数应在 1-{ProbabilityScale} 之间，当前为 {balance.FieldBattleLossFactor}。"));
+        }
+
+        if (balance.ArmyMonthlyGrainPerSoldier < 0)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "ArmyMonthlyGrainPerSoldier",
+                $"每兵月耗粮不可为负，当前为 {balance.ArmyMonthlyGrainPerSoldier}。"));
+        }
+
+        if (balance.SiegeDefeatRoutRate < 0 || balance.SiegeDefeatRoutRate > ProbabilityScale)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "SiegeDefeatRoutRate",
+                $"攻陷后守军溃散率应在 0-{ProbabilityScale} 之间，当前为 {balance.SiegeDefeatRoutRate}。"));
+        }
+
+        // ===== 阈值必须高于基础战损，否则均势攻城直接被判击退 =====
+        if (balance.SiegeThresholdLoss > 0 && balance.BaseLoss >= balance.SiegeThresholdLoss)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "SiegeThresholdLoss",
+                $"击退阈值（{balance.SiegeThresholdLoss}）必须高于基础战损" +
+                $"（{balance.BaseLoss}），否则任何攻城都会被判为击退。"));
+        }
+
+        // ===== 【返工 2.10 第 2 条】废弃字段告警（只警告一次，不阻止开局）=====
+        if (balance.DefenderLossFactor > 0)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Warning, "DefenderLossFactor",
+                "该字段自 v1.2 起已失效，不再参与计算：守方损失改按「攻方投入 × killRate」" +
+                "并由 killRate 公式中的 (2 - defenseFactor) 承担城墙保护。请从 config.json 移除。"));
+        }
+
+        if (balance.StalemateLossRate > 0)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Warning, "StalemateLossRate",
+                "该字段自 v1.2 起已失效，不再参与计算：未决改为按 lossRate / killRate 正常结算，" +
+                "不再额外扣一次双方兵力（原「各损 10%」属重复计算）。请从 config.json 移除。"));
+        }
+
+        ValidateMoraleConfig(balance, issues);
+    }
+
+    /// <summary>
+    /// 校验士气相关的 8 个字段。
+    /// </summary>
+    /// <param name="balance">平衡配置。</param>
+    /// <param name="issues">问题收集列表。</param>
+    /// <remarks>
+    /// 【返工 2.10 第 3 条】士气字段必须存在且在合理范围。
+    /// 【刻度陷阱】士气字段全部是<b>绝对点数</b>（士气本身 0-100），
+    /// 只有 <c>MutinyRoutRate</c> 是万分比。混用刻度会让士气系统静默失效，
+    /// 因此这里逐项核对量纲，不做统一处理。
+    /// </remarks>
+    private static void ValidateMoraleConfig(BalanceConfig balance, List<ConfigIssue> issues)
+    {
+        // 绝对点数项：0-100。缺 0 意味着该机制被静默关掉。
+        AddInRange(issues, "BalanceConfig", "MoraleDecayPerMonth",
+            balance.MoraleDecayPerMonth, 1, MoralePointMax);
+
+        AddInRange(issues, "BalanceConfig", "MoraleDecayNoBattleThreshold",
+            balance.MoraleDecayNoBattleThreshold, 1, MoralePointMax);
+
+        AddInRange(issues, "BalanceConfig", "MoraleDecayNoBattlePerMonth",
+            balance.MoraleDecayNoBattlePerMonth, 1, MoralePointMax);
+
+        AddInRange(issues, "BalanceConfig", "MoraleGainOnCapture",
+            balance.MoraleGainOnCapture, 1, MoralePointMax);
+
+        AddInRange(issues, "BalanceConfig", "MoraleLossOnRepel",
+            balance.MoraleLossOnRepel, 1, MoralePointMax);
+
+        AddInRange(issues, "BalanceConfig", "MoraleLossOnStalemate",
+            balance.MoraleLossOnStalemate, 1, MoralePointMax);
+
+        AddInRange(issues, "BalanceConfig", "MoraleLossOnDefend",
+            balance.MoraleLossOnDefend, 1, MoralePointMax);
+
+        // 【唯一的比率项】哗变解散兵力比例，万分比。
+        if (balance.MutinyRoutRate < 0 || balance.MutinyRoutRate > ProbabilityScale)
+        {
+            issues.Add(new ConfigIssue(
+                ConfigIssueSeverity.Error, "MutinyRoutRate",
+                $"哗变解散兵力比例应为万分比 0-{ProbabilityScale}，当前为 {balance.MutinyRoutRate}。"));
+        }
     }
 
     /// <summary>校验专长加成字典。</summary>
@@ -287,7 +445,7 @@ public static class ConfigValidator
         }
     }
 
-    /// <summary>校验事件模板：概率在 0-100 之间，同类别概率和不超过 60。</summary>
+    /// <summary>校验事件模板：Id 为正整数、概率为万分比且在 0-10000 之间，同类别概率和不超过 6000。</summary>
     /// <param name="events">事件模板列表。</param>
     /// <param name="issues">问题收集列表。</param>
     private static void ValidateEvents(List<GameEventTemplate>? events, List<ConfigIssue> issues)
@@ -300,16 +458,18 @@ public static class ConfigValidator
         }
 
         var categorySums = new Dictionary<EventCategory, int>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var seen = new HashSet<int>();
 
         foreach (var evt in events)
         {
             string location = $"Event[{evt.Id}]";
 
-            if (string.IsNullOrWhiteSpace(evt.Id))
+            // 【v1.2】Id 由 string 改为 int，全项目实体 Id 一律正整数。
+            if (evt.Id <= 0)
             {
                 issues.Add(new ConfigIssue(
-                    ConfigIssueSeverity.Error, location, "事件 Id 为空。"));
+                    ConfigIssueSeverity.Error, location,
+                    $"事件 Id 必须为正整数，当前为 {evt.Id}。"));
             }
             else if (!seen.Add(evt.Id))
             {
@@ -317,11 +477,11 @@ public static class ConfigValidator
                     ConfigIssueSeverity.Error, location, "事件 Id 重复。"));
             }
 
-            if (evt.Probability < 0 || evt.Probability > 100)
+            if (evt.Probability < 0 || evt.Probability > ProbabilityScale)
             {
                 issues.Add(new ConfigIssue(
                     ConfigIssueSeverity.Error, location,
-                    $"触发概率应在 0-100 之间，当前为 {evt.Probability}。"));
+                    $"触发概率应为万分比 0-{ProbabilityScale}，当前为 {evt.Probability}。"));
             }
 
             if (string.IsNullOrWhiteSpace(evt.Message))
@@ -336,13 +496,13 @@ public static class ConfigValidator
 
         foreach (var (category, sum) in categorySums)
         {
-            // 契约规定同一 Category 的概率之和不得超过 60。
-            if (sum > 60)
+            // 契约规定同一 Category 的概率之和不得超过 6000（60%）。
+            if (sum > CategoryProbabilityCap)
             {
                 issues.Add(new ConfigIssue(
                     ConfigIssueSeverity.Error,
                     $"EventCategory[{category}]",
-                    $"该类别事件概率之和为 {sum}，超过上限 60。"));
+                    $"该类别事件概率之和为 {sum}，超过上限 {CategoryProbabilityCap}。"));
             }
         }
     }
