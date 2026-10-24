@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的 SVG 作图工具</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; font-family: "Microsoft YaHei", "微软雅黑", sans-serif; }
+  body { display: flex; flex-direction: column; background: #f3f4f6; }
+  button { background: #378add; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  button.ghost { background: #4b4b48; }
+  button.warn { background: #e8590c; }
+  button:hover { filter: brightness(1.08); }
+  button.active { outline: 2px solid #ffd400; outline-offset: 1px; }
+
+  header { background: #2c2c2a; color: #fff; padding: 8px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .spacer { flex: 1; }
+  .modeGroup { display: inline-flex; border: 1px solid #555; border-radius: 6px; overflow: hidden; }
+  .modeGroup button { border-radius: 0; background: #3a3a38; }
+  .modeGroup button.active { background: #378add; outline: none; }
+
+  .tabs { background: #e6e8eb; padding: 4px 10px; display: flex; gap: 6px; align-items: center; border-bottom: 1px solid #d8dade; flex-wrap: wrap; }
+  .tab { background: #fff; border: 1px solid #c9ccd1; border-radius: 6px 6px 0 0; padding: 5px 12px; font-size: 13px; cursor: pointer; color: #333; }
+  .tab.cur { background: #378add; color: #fff; border-color: #378add; }
+  .tab .x { margin-left: 6px; color: #c00; font-weight: bold; }
+
+  .leftPane { flex: 1; min-width: 0; display: flex; }
+  .rightPane { flex: 1; min-width: 0; border-left: 2px solid #d8dade; display: flex; flex-direction: column; }
+  .paneTitle { background: #e6e8eb; padding: 5px 12px; font-size: 13px; color: #444; border-bottom: 1px solid #d8dade; }
+
+  #colorView, #codeView { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+  #palette { padding: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; overflow: auto; }
+  .swatch { width: 24px; height: 24px; border-radius: 4px; border: 1px solid #999; cursor: pointer; }
+  .swatch.cur { outline: 2px solid #222; outline-offset: 1px; }
+  #codeArea { flex: 1; width: 100%; border: none; resize: none; padding: 12px; font-family: Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.5; color: #1c1c1c; outline: none; }
+
+  .rightBar { background: #eef0f2; padding: 6px 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #d8dade; font-size: 13px; color: #444; }
+  .rightBar input[type=number] { width: 58px; padding: 4px; border: 1px solid #bbb; border-radius: 4px; }
+  input[type=color] { width: 30px; height: 26px; border: 1px solid #bbb; border-radius: 4px; padding: 0; cursor: pointer; background: none; }
+
+  .boardArea { flex: 1; position: relative; overflow: auto; display: flex; padding: 10px; background: #fafbfc; }
+  #boardWrap { position: relative; margin: auto; }
+  #boardCanvas { display: block; background: #fff; box-shadow: 0 0 0 1px #d3d6da; cursor: crosshair; }
+  #gridCanvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+
+  #codePreview {
+    flex: 1; min-width: 0;
+    background:
+      linear-gradient(45deg,#eceef0 25%,transparent 25%) 0 0/16px 16px,
+      linear-gradient(-45deg,#eceef0 25%,transparent 25%) 0 8px/16px 16px,
+      linear-gradient(45deg,transparent 75%,#eceef0 75%) 8px -8px/16px 16px,
+      linear-gradient(-45deg,transparent 75%,#eceef0 75%) -8px 0/16px 16px,
+      #fff;
+    overflow: hidden;
+  }
+  #codePreview svg { display: block; width: 100%; height: 100%; }
+
+  #status { background: #2c2c2a; color: #9fe0a0; padding: 5px 16px; font-size: 12px; min-height: 26px; }
+  #status.err { color: #ff9b8a; }
+  .hint { color: #b9b9b9; font-size: 12px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>我的 SVG 作图工具</h1>
+    <div class="modeGroup">
+      <button id="modePaintBtn" class="active">🎨 选色</button>
+      <button id="modeCodeBtn" class="ghost">💻 代码</button>
+    </div>
+    <span class="hint" id="modeHint">左：选颜色　右：点格子涂色</span>
+    <span class="spacer"></span>
+    <button id="importImgBtn" class="ghost">导入图片</button>
+    <button id="openFileBtn" class="ghost">打开文件</button>
+    <button id="undoBtn" class="ghost">↶ 撤销</button>
+    <button id="redoBtn" class="ghost">↷ 重做</button>
+    <button id="downloadSvgBtn">下载 SVG</button>
+    <button id="downloadPngBtn" class="ghost">下载 PNG</button>
+  </header>
+  <input type="file" id="fileInput" accept=".svg,image/svg+xml" style="display:none">
+  <input type="file" id="imgInput" accept="image/*" style="display:none">
+
+  <div class="tabs" id="tabs">
+    <span class="hint" style="margin-right:4px;">页面：</span>
+    <button id="newPageBtn" class="ghost" style="padding:4px 10px;">＋ 新建</button>
+  </div>
+
+  <div class="main" style="flex:1; display:flex; min-height:0;">
+    <div class="leftPane">
+      <div id="colorView">
+        <div class="paneTitle">选颜色（点一下选中，去右边涂）</div>
+        <input type="text" id="colorSearch" placeholder="搜颜色：编号 或 十六进制，如 123 / a1b2c3" style="margin:8px 12px 0; padding:6px; width:calc(100% - 24px); border:1px solid #bbb; border-radius:4px; font-size:13px;">
+        <div id="palette"></div>
+        <div style="padding:10px 12px; border-top:1px solid #d8dade; display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; color:#444;">
+          自定义 <input type="color" id="customColor" value="#E11D2A">
+          <button id="eraserBtn" class="ghost">橡皮</button>
+          当前颜色 <span id="curColorShow" style="display:inline-block;width:22px;height:22px;border:1px solid #999;border-radius:4px;vertical-align:middle;"></span>
+        </div>
+      </div>
+      <div id="codeView" style="display:none;">
+        <div class="paneTitle" style="display:flex; align-items:center; gap:10px;">SVG 代码（自动同步你的画作 · 可改 · 右边实时预览）<button id="sampleBtn" class="ghost" style="padding:3px 8px; font-size:12px;">载入示例</button></div>
+        <textarea id="codeArea" spellcheck="false"><svg viewBox="0 0 680 350" width="100%" role="img" xmlns="http://www.w3.org/2000/svg">
+ <title>万军齐发 · 等距战场概念示意</title>
+ <desc>等距视角战场：草地河流森林山地，两军团方阵对冲混战</desc>
+ <defs>
+ <marker id="arrR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+ <path d="M2 1L8 5L2 9" fill="none" stroke="#993C1D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+ </marker>
+ <marker id="arrB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+ <path d="M2 1L8 5L2 9" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+ </marker>
+ </defs>
+ <text x="40" y="38" font-size="15" font-weight="500" fill="#2C2C2A">万军齐发 · 等距战场概念示意</text>
+ <g stroke="rgba(255,255,255,.4)" stroke-width="0.3">
+ <path d="M340 82 L376 100 L340 118 L304 100 Z" fill="#3B6D11"/>
+ <path d="M304 100 L340 118 L304 136 L268 118 Z" fill="#3B6D11"/>
+ <path d="M268 118 L304 136 L268 154 L232 136 Z" fill="#EAF3DE"/>
+ <path d="M232 136 L268 154 L232 172 L196 154 Z" fill="#C0DD97"/>
+ <path d="M196 154 L232 172 L196 190 L160 172 Z" fill="#EAF3DE"/>
+ <path d="M376 100 L412 118 L376 136 L340 118 Z" fill="#3B6D11"/>
+ <path d="M340 118 L376 136 L340 154 L304 136 Z" fill="#EAF3DE"/>
+ <path d="M304 136 L340 154 L304 172 L268 154 Z" fill="#C0DD97"/>
+ <path d="M268 154 L304 172 L268 190 L232 172 Z" fill="#EAF3DE"/>
+ <path d="M232 172 L268 190 L232 208 L196 190 Z" fill="#C0DD97"/>
+ <path d="M412 118 L448 136 L412 154 L376 136 Z" fill="#EAF3DE"/>
+ <path d="M376 136 L412 154 L376 172 L340 154 Z" fill="#C0DD97"/>
+ <path d="M340 154 L376 172 L340 190 L304 172 Z" fill="#EAF3DE"/>
+ <path d="M304 172 L340 190 L304 208 L268 190 Z" fill="#B5D4F4"/>
+ <path d="M268 190 L304 208 L268 226 L232 208 Z" fill="#B5D4F4"/>
+ <path d="M448 136 L484 154 L448 172 L412 154 Z" fill="#C0DD97"/>
+ <path d="M412 154 L448 172 L412 190 L376 154 Z" fill="#EAF3DE"/>
+ <path d="M376 172 L412 190 L376 208 L340 190 Z" fill="#B5D4F4"/>
+ <path d="M304 208 L340 226 L304 244 L268 226 Z" fill="#85B7EB"/>
+ <path d="M268 226 L304 244 L268 262 L232 244 Z" fill="#B5D4F4"/>
+ <path d="M484 154 L520 172 L484 190 L448 172 Z" fill="#888780"/>
+ <path d="M448 172 L484 190 L448 208 L412 190 Z" fill="#EAF3DE"/>
+ <path d="M412 190 L448 208 L412 226 L376 208 Z" fill="#C0DD97"/>
+ <path d="M340 226 L376 244 L340 262 L304 244 Z" fill="#85B7EB"/>
+ <path d="M304 244 L340 262 L304 280 L268 262 Z" fill="#B5D4F4"/>
+ <path d="M520 172 L556 190 L520 208 L484 190 Z" fill="#888780"/>
+ <path d="M484 190 L520 208 L484 226 L448 208 Z" fill="#C0DD97"/>
+ <path d="M448 208 L484 226 L448 244 L412 226 Z" fill="#EAF3DE"/>
+ <path d="M376 244 L412 262 L376 280 L340 262 Z" fill="#C0DD97"/>
+ <path d="M556 190 L592 208 L556 226 L520 208 Z" fill="#EAF3DE"/>
+ <path d="M520 208 L556 226 L520 244 L484 226 Z" fill="#EAF3DE"/>
+ <path d="M484 226 L520 244 L484 262 L448 244 Z" fill="#C0DD97"/>
+ <path d="M412 262 L448 280 L412 298 L376 280 Z" fill="#EAF3DE"/>
+ <path d="M340 190 L376 208 L340 226 L304 208 Z" fill="#FAC775"/>
+ </g>
+ <g fill="#993C1D">
+ <circle cx="176" cy="212" r="3"/><circle cx="185" cy="212" r="3"/><circle cx="194" cy="212" r="3"/><circle cx="203" cy="212" r="3"/><circle cx="212" cy="212" r="3"/>
+ <circle cx="176" cy="220" r="3"/><circle cx="185" cy="220" r="3"/><circle cx="194" cy="220" r="3"/><circle cx="203" cy="220" r="3"/><circle cx="212" cy="220" r="3"/>
+ <circle cx="176" cy="228" r="3"/><circle cx="185" cy="228" r="3"/><circle cx="194" cy="228" r="3"/><circle cx="203" cy="228" r="3"/><circle cx="212" cy="228" r="3"/>
+ <circle cx="221" cy="238" r="3"/><circle cx="230" cy="238" r="3"/><circle cx="239" cy="238" r="3"/><circle cx="248" cy="238" r="3"/><circle cx="257" cy="238" r="3"/>
+ <circle cx="221" cy="246" r="3"/><circle cx="230" cy="246" r="3"/><circle cx="239" cy="246" r="3"/><circle cx="248" cy="246" r="3"/><circle cx="257" cy="246" r="3"/>
+ <circle cx="221" cy="254" r="3"/><circle cx="230" cy="254" r="3"/><circle cx="239" cy="254" r="3"/><circle cx="248" cy="254" r="3"/><circle cx="257" cy="254" r="3"/>
+ <circle cx="156" cy="246" r="3"/><circle cx="165" cy="246" r="3"/><circle cx="174" cy="246" r="3"/><circle cx="183" cy="246" r="3"/><circle cx="192" cy="246" r="3"/>
+ <circle cx="156" cy="254" r="3"/><circle cx="165" cy="254" r="3"/><circle cx="174" cy="254" r="3"/><circle cx="183" cy="254" r="3"/><circle cx="192" cy="254" r="3"/>
+ <circle cx="156" cy="262" r="3"/><circle cx="165" cy="262" r="3"/><circle cx="174" cy="262" r="3"/><circle cx="183" cy="262" r="3"/><circle cx="192" cy="262" r="3"/>
+ </g>
+ <g stroke="#993C1D" stroke-width="1.2">
+ <line x1="194" y1="208" x2="194" y2="192"/><line x1="239" y1="234" x2="239" y2="218"/><line x1="174" y1="242" x2="174" y2="226"/>
+ </g>
+ <g fill="#993C1D">
+ <path d="M194 192 L204 195 L194 198 Z"/><path d="M239 218 L249 221 L239 224 Z"/><path d="M174 226 L184 229 L174 232 Z"/>
+ </g>
+ <g fill="#185FA5">
+ <circle cx="452" cy="168" r="3"/><circle cx="461" cy="168" r="3"/><circle cx="470" cy="168" r="3"/><circle cx="479" cy="168" r="3"/><circle cx="488" cy="168" r="3"/>
+ <circle cx="452" cy="176" r="3"/><circle cx="461" cy="176" r="3"/><circle cx="470" cy="176" r="3"/><circle cx="479" cy="176" r="3"/><circle cx="488" cy="176" r="3"/>
+ <circle cx="452" cy="184" r="3"/><circle cx="461" cy="184" r="3"/><circle cx="470" cy="184" r="3"/><circle cx="479" cy="184" r="3"/><circle cx="488" cy="184" r="3"/>
+ <circle cx="497" cy="192" r="3"/><circle cx="506" cy="192" r="3"/><circle cx="515" cy="192" r="3"/><circle cx="524" cy="192" r="3"/><circle cx="533" cy="192" r="3"/>
+ <circle cx="497" cy="200" r="3"/><circle cx="506" cy="200" r="3"/><circle cx="515" cy="200" r="3"/><circle cx="524" cy="200" r="3"/><circle cx="533" cy="200" r="3"/>
+ <circle cx="497" cy="208" r="3"/><circle cx="506" cy="208" r="3"/><circle cx="515" cy="208" r="3"/><circle cx="524" cy="208" r="3"/><circle cx="533" cy="208" r="3"/>
+ <circle cx="412" cy="196" r="3"/><circle cx="421" cy="196" r="3"/><circle cx="430" cy="196" r="3"/><circle cx="439" cy="196" r="3"/><circle cx="448" cy="196" r="3"/>
+ <circle cx="412" cy="204" r="3"/><circle cx="421" cy="204" r="3"/><circle cx="430" cy="204" r="3"/><circle cx="439" cy="204" r="3"/><circle cx="448" cy="204" r="3"/>
+ <circle cx="412" cy="212" r="3"/><circle cx="421" cy="212" r="3"/><circle cx="430" cy="212" r="3"/><circle cx="439" cy="212" r="3"/><circle cx="448" cy="212" r="3"/>
+ </g>
+ <g stroke="#185FA5" stroke-width="1.2">
+ <line x1="470" y1="164" x2="470" y2="148"/><line x1="515" y1="188" x2="515" y2="172"/><line x1="430" y1="192" x2="430" y2="176"/>
+ </g>
+ <g fill="#185FA5">
+ <path d="M470 148 L480 151 L470 154 Z"/><path d="M515 172 L525 175 L515 178 Z"/><path d="M430 176 L440 179 L430 182 Z"/>
+ </g>
+ <g fill="none" stroke-linecap="round">
+ <line x1="268" y1="240" x2="392" y2="188" stroke="#993C1D" stroke-width="2" marker-end="url(#arrR)"/>
+ <line x1="300" y1="262" x2="424" y2="210" stroke="#993C1D" stroke-width="2" marker-end="url(#arrR)"/>
+ <line x1="486" y1="222" x2="362" y2="258" stroke="#185FA5" stroke-width="2" marker-end="url(#arrB)"/>
+ </g>
+ <g>
+ <circle cx="332" cy="216" r="5" fill="#D85A30"/><circle cx="337" cy="216" r="5" fill="#378ADD" opacity=".75"/>
+ <circle cx="366" cy="230" r="5" fill="#D85A30"/><circle cx="371" cy="230" r="5" fill="#378ADD" opacity=".75"/>
+ <circle cx="312" cy="234" r="4" fill="#D85A30"/><circle cx="316" cy="234" r="4" fill="#378ADD" opacity=".75"/>
+ </g>
+ <text x="176" y="292" font-size="12" fill="#993C1D">红方军团 · 百余单位</text>
+ <text x="498" y="132" font-size="12" fill="#185FA5">蓝方军团</text>
+ <text x="322" y="286" font-size="12" fill="#5F5E5A">混战区</text>
+ <text x="366" y="166" font-size="12" fill="#854F0B">木桥</text>
+ <text x="40" y="330" font-size="12" fill="#888780">等距场地 · 同屏数百小兵冲锋混战 · 开局排兵布阵，开战发号令观战（概念示意，非成品画面）</text>
+</svg></textarea>
+      </div>
+    </div>
+
+    <div class="rightPane">
+      <div class="rightBar">
+        <span id="rightLabel">上色区（点格子涂色）</span>
+        <span id="boardControls" style="display:inline-flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto;">
+          格子数　列 <input type="number" id="colsInput" min="1" max="1920" value="16">
+          行 <input type="number" id="rowsInput" min="1" max="1920" value="16">
+          <button id="applySizeBtn">应用</button>
+          <button id="gridBtn" class="active">网格</button>
+          <button id="clearBtn" class="warn">清空</button>
+          缩放 <button id="zoomOut">−</button> <span id="zoomLabel">100%</span> <button id="zoomIn">+</button> <button id="zoomReset">复位</button>
+        </span>
+      </div>
+      <div class="boardArea" id="boardArea">
+        <div id="boardWrap">
+          <canvas id="boardCanvas"></canvas>
+          <canvas id="gridCanvas"></canvas>
+        </div>
+      </div>
+      <div id="codePreview" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div id="status">就绪</div>
+
+<script>
+  const CELL = 20;      // 导出 SVG 时每格基准像素
+  const BASE = 24;      // 屏幕上每格基准像素（格子数越多，画布越大）
+  const MAXN = 1920;    // 单边最大格子数（约 1080p；4K 太吃内存封顶在此）
+
+  let pages = [];
+  let cur = 0;
+  let history = [], future = [];
+  let curColor = "#E11D2A";
+  let eraser = false;
+  let showGrid = true;
+  let mode = "paint";   // "paint" 选色 / "code" 代码
+  let zoom = 1;
+  let cellPx = BASE;
+
+  let codeHistory = [], codeFuture = [];
+
+  function emptyCells(cols, rows) { const a = []; for (let r = 0; r < rows; r++) a.push(new Array(cols).fill(null)); return a; }
+  pages.push({ name: "页面1", cols: 16, rows: 16, cells: emptyCells(16, 16) });
+
+  const boardArea = document.getElementById("boardArea");
+  const boardCanvas = document.getElementById("boardCanvas");
+  const gridCanvas = document.getElementById("gridCanvas");
+  const ctx = boardCanvas.getContext("2d");
+  const gctx = gridCanvas.getContext("2d");
+  const off = document.createElement("canvas");
+  const offCtx = off.getContext("2d");
+  let offData = null;
+
+  const status = document.getElementById("status");
+  const paletteEl = document.getElementById("palette");
+  const codeArea = document.getElementById("codeArea");
+  const codePreview = document.getElementById("codePreview");
+  let codeLast = codeArea.value;
+  const BATTLEFIELD = codeArea.value;   // 保留最初的战场示例代码，随时可载回
+  let lastBoardSvg = null;              // 上次由画板生成的代码，用于判断是否需要同步
+
+  // 颜色：灰阶 + HSL 全色域生成（约 2400 种），每个带编号，可搜索
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    const x = v => Math.round(255 * v).toString(16).padStart(2, "0");
+    return "#" + x(f(0)) + x(f(8)) + x(f(4));
+  }
+  const PALETTE = [];
+  for (let l = 0; l <= 100; l += 4) PALETTE.push(hslToHex(0, 0, l));
+  for (let h = 0; h < 360; h += 3)
+    for (const s of [100, 80, 60, 40])
+      for (const l of [22, 38, 54, 70, 86]) PALETTE.push(hslToHex(h, s, l));
+
+  const swatchEls = [];
+  PALETTE.forEach((c, i) => {
+    const s = document.createElement("span");
+    s.className = "swatch"; s.style.background = c; s.dataset.c = c;
+    s.title = "#" + (i + 1) + "  " + c;
+    s.onclick = () => { curColor = c; eraser = false; syncColorUI(); };
+    paletteEl.appendChild(s);
+    swatchEls.push(s);
+  });
+  document.getElementById("colorSearch").addEventListener("input", () => {
+    const q = document.getElementById("colorSearch").value.trim().toLowerCase().replace(/^#/, "");
+    swatchEls.forEach((sw, i) => {
+      const idx = String(i + 1), hex = sw.dataset.c.toLowerCase().replace("#", "");
+      const hit = !q || idx.includes(q) || hex.includes(q);
+      sw.style.display = hit ? "" : "none";
+    });
+  });
+  function syncColorUI() {
+    swatchEls.forEach((s, i) => s.classList.toggle("cur", !eraser && s.dataset.c === curColor));
+    document.getElementById("eraserBtn").classList.toggle("active", eraser);
+    document.getElementById("customColor").value = eraser ? "#000000" : curColor;
+    document.getElementById("curColorShow").style.background = eraser ? "transparent" : curColor;
+  }
+  document.getElementById("customColor").addEventListener("input", e => { curColor = e.target.value.toUpperCase(); eraser = false; syncColorUI(); });
+  document.getElementById("eraserBtn").addEventListener("click", () => { eraser = !eraser; if (eraser) curColor = null; syncColorUI(); });
+
+  function clonePage(p) { return { name: p.name, cols: p.cols, rows: p.rows, cells: p.cells.map(r => r.slice()) }; }
+  function snapshot() {
+    const p = pages[cur];
+    if (p.cols * p.rows > 250000) { future = []; return; }   // 超大图不记历史，避免内存爆掉
+    history.push(clonePage(p)); if (history.length > 15) history.shift(); future = [];
+  }
+
+  function hexToRgb(v) { return [parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16)]; }
+
+  // 离屏画布（每格 1 像素），用于快速整幅重绘
+  function rebuildOffscreen() {
+    const p = pages[cur];
+    off.width = p.cols; off.height = p.rows;
+    offData = offCtx.createImageData(p.cols, p.rows);
+    const d = offData.data;
+    for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) {
+      const v = p.cells[r][c], i = (r * p.cols + c) * 4;
+      if (v) { const [R, G, B] = hexToRgb(v); d[i] = R; d[i + 1] = G; d[i + 2] = B; d[i + 3] = 255; }
+    }
+    offCtx.putImageData(offData, 0, 0);
+  }
+  function renderBoard() {
+    const W = boardCanvas.width, H = boardCanvas.height;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = false;
+    if (off.width) ctx.drawImage(off, 0, 0, off.width, off.height, 0, 0, W, H);
+  }
+  function renderGrid() {
+    const p = pages[cur], W = gridCanvas.width, H = gridCanvas.height;
+    gctx.clearRect(0, 0, W, H);
+    if (!showGrid || cellPx < 4) return;
+    gctx.strokeStyle = "rgba(0,0,0,.18)"; gctx.lineWidth = 1; gctx.beginPath();
+    for (let c = 0; c <= p.cols; c++) { const x = Math.round(c * cellPx) + 0.5; gctx.moveTo(x, 0); gctx.lineTo(x, H); }
+    for (let r = 0; r <= p.rows; r++) { const y = Math.round(r * cellPx) + 0.5; gctx.moveTo(0, y); gctx.lineTo(W, y); }
+    gctx.stroke();
+  }
+  function fitZoom() {
+    const p = pages[cur];
+    const aw = boardArea.clientWidth - 24, ah = boardArea.clientHeight - 24;
+    if (aw <= 0 || ah <= 0) return 1;
+    return Math.max(0.02, Math.min(8, Math.min(aw / (p.cols * BASE), ah / (p.rows * BASE))));
+  }
+  function layoutBoard() {
+    const p = pages[cur];
+    cellPx = Math.max(0.5, BASE * zoom);
+    const W = Math.max(1, Math.round(cellPx * p.cols)), H = Math.max(1, Math.round(cellPx * p.rows));
+    [boardCanvas, gridCanvas].forEach(cv => { cv.width = W; cv.height = H; cv.style.width = W + "px"; cv.style.height = H + "px"; });
+    document.getElementById("zoomLabel").textContent = Math.round(zoom * 100) + "%";
+    renderBoard(); renderGrid();
+  }
+  function buildBoard() {
+    const p = pages[cur];
+    document.getElementById("colsInput").value = p.cols;
+    document.getElementById("rowsInput").value = p.rows;
+    rebuildOffscreen();
+    layoutBoard();
+  }
+  function buildSVG(p) {
+    const w = p.cols * CELL, h = p.rows * CELL;
+    let r = "";
+    for (let i = 0; i < p.rows; i++) for (let j = 0; j < p.cols; j++)
+      if (p.cells[i][j]) r += '<rect x="' + (j * CELL) + '" y="' + (i * CELL) + '" width="' + CELL + '" height="' + CELL + '" fill="' + p.cells[i][j] + '"/>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">' + r + '</svg>';
+  }
+  // 小图：正常方块 SVG（可编辑）；大图：把画布 PNG 内嵌进 SVG，避免几百万方块卡死
+  // 把离屏画布按最大边封顶渲染到一张 PNG 画布（避免 1080p 大图画布爆内存/卡死）
+  function renderOffToCanvas(maxSide) {
+    const p = pages[cur];
+    const w = p.cols * CELL, h = p.rows * CELL;
+    let iw = w, ih = h;
+    if (Math.max(iw, ih) > maxSide) { const sc = maxSide / Math.max(iw, ih); iw = Math.round(iw * sc); ih = Math.round(ih * sc); }
+    const cv = document.createElement("canvas"); cv.width = iw; cv.height = ih;
+    const cc = cv.getContext("2d"); cc.imageSmoothingEnabled = false;
+    cc.fillStyle = "#fff"; cc.fillRect(0, 0, iw, ih);
+    if (off.width) cc.drawImage(off, 0, 0, off.width, off.height, 0, 0, iw, ih);
+    return cv;
+  }
+  function artworkSVG(p) {
+    const total = p.cols * p.rows;
+    if (total <= 40000) return buildSVG(p);
+    const w = p.cols * CELL, h = p.rows * CELL;
+    const cv = renderOffToCanvas(1024);   // 大图：内嵌 PNG，封顶尺寸，不再卡死
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="100%"><image href="' + cv.toDataURL("image/png") + '" width="' + w + '" height="' + h + '"/></svg>';
+  }
+  function renderCodePreview() { codePreview.innerHTML = codeArea.value; }
+  // 进入代码模式：把画板同步成对应 SVG（画完切代码即可看到）
+  function syncCodeFromBoard() {
+    const s = artworkSVG(pages[cur]);
+    if (s !== lastBoardSvg) { codeArea.value = s; codeLast = s; codeHistory = []; codeFuture = []; lastBoardSvg = s; }
+  }
+
+  // 涂色（Canvas 命中）
+  let painting = false;
+  function paintAt(ev) {
+    const rect = boardCanvas.getBoundingClientRect();
+    const c = Math.floor((ev.clientX - rect.left) / cellPx);
+    const r = Math.floor((ev.clientY - rect.top) / cellPx);
+    const p = pages[cur];
+    if (c < 0 || r < 0 || c >= p.cols || r >= p.rows) return;
+    const val = eraser ? null : curColor;
+    if (p.cells[r][c] === val) return;
+    p.cells[r][c] = val;
+    const i = (r * p.cols + c) * 4, d = offData.data;
+    if (val) { const [R, G, B] = hexToRgb(val); d[i] = R; d[i + 1] = G; d[i + 2] = B; d[i + 3] = 255; }
+    else { d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0; }
+    offCtx.putImageData(offData, 0, 0, c, r, 1, 1);
+    const x = Math.round(c * cellPx), y = Math.round(r * cellPx), s = Math.ceil(cellPx);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(x, y, s, s);
+    if (val) { ctx.fillStyle = val; ctx.fillRect(x, y, s, s); }
+  }
+  boardCanvas.addEventListener("mousedown", e => { painting = true; snapshot(); paintAt(e); });
+  boardCanvas.addEventListener("mousemove", e => { if (painting) paintAt(e); });
+  window.addEventListener("mouseup", () => { painting = false; });
+
+  // 缩放
+  function applyZoom() { zoom = Math.min(40, Math.max(0.02, zoom)); layoutBoard(); }
+  boardArea.addEventListener("wheel", e => { e.preventDefault(); zoom *= e.deltaY < 0 ? 1.12 : 0.89; applyZoom(); }, { passive: false });
+  document.getElementById("zoomIn").onclick = () => { zoom *= 1.2; applyZoom(); };
+  document.getElementById("zoomOut").onclick = () => { zoom *= 0.8; applyZoom(); };
+  document.getElementById("zoomReset").onclick = () => { zoom = fitZoom(); applyZoom(); };
+
+  // 多页面
+  function renderTabs() {
+    const tabs = document.getElementById("tabs");
+    tabs.querySelectorAll(".tab").forEach(t => t.remove());
+    const newBtn = document.getElementById("newPageBtn");
+    pages.forEach((p, i) => {
+      const t = document.createElement("span");
+      t.className = "tab" + (i === cur ? " cur" : "");
+      t.innerHTML = p.name + (pages.length > 1 ? ' <span class="x">×</span>' : '');
+      t.onclick = (e) => {
+        if (e.target.classList.contains("x")) { e.stopPropagation(); pages.splice(i, 1); if (cur >= pages.length) cur = pages.length - 1; renderTabs(); if (mode === "paint") buildBoard(); return; }
+        cur = i; renderTabs(); if (mode === "paint") buildBoard();
+      };
+      tabs.insertBefore(t, newBtn);
+    });
+  }
+  document.getElementById("newPageBtn").onclick = () => {
+    const n = pages.length + 1;
+    const cols = Math.max(1, Math.min(MAXN, +document.getElementById("colsInput").value || 16));
+    const rows = Math.max(1, Math.min(MAXN, +document.getElementById("rowsInput").value || 16));
+    pages.push({ name: "页面" + n, cols, rows, cells: emptyCells(cols, rows) });
+    cur = pages.length - 1; renderTabs(); if (mode === "paint") buildBoard();
+  };
+  document.getElementById("applySizeBtn").onclick = () => {
+    const cols = Math.max(1, Math.min(MAXN, +document.getElementById("colsInput").value || 16));
+    const rows = Math.max(1, Math.min(MAXN, +document.getElementById("rowsInput").value || 16));
+    const p = pages[cur]; snapshot();
+    const nc = emptyCells(cols, rows);
+    for (let r = 0; r < Math.min(rows, p.rows); r++) for (let c = 0; c < Math.min(cols, p.cols); c++) nc[r][c] = p.cells[r][c];
+    p.cols = cols; p.rows = rows; p.cells = nc;
+    if (mode === "paint") { buildBoard(); status.textContent = "格子数已设为 " + cols + " × " + rows; }
+  };
+  document.getElementById("gridBtn").onclick = () => { showGrid = !showGrid; document.getElementById("gridBtn").classList.toggle("active", showGrid); if (mode === "paint") renderGrid(); };
+  document.getElementById("clearBtn").onclick = () => { if (confirm("确定清空当前页面所有格子？")) { snapshot(); pages[cur].cells = emptyCells(pages[cur].cols, pages[cur].rows); if (mode === "paint") buildBoard(); } };
+
+  // 模式切换
+  function setMode(m) {
+    mode = m;
+    const paint = m === "paint";
+    document.getElementById("colorView").style.display = paint ? "flex" : "none";
+    document.getElementById("codeView").style.display = paint ? "none" : "flex";
+    document.getElementById("boardArea").style.display = paint ? "flex" : "none";
+    document.getElementById("codePreview").style.display = paint ? "none" : "block";
+    document.getElementById("boardControls").style.display = paint ? "inline-flex" : "none";
+    document.getElementById("rightLabel").textContent = paint ? "上色区（点格子涂色）" : "代码实时预览";
+    document.getElementById("modePaintBtn").classList.toggle("active", paint);
+    document.getElementById("modeCodeBtn").classList.toggle("active", !paint);
+    document.getElementById("modeHint").textContent = paint ? "左：选颜色　右：点格子涂色" : "左：代码（自动同步你的画作）　右：实时预览";
+    if (paint) buildBoard(); else { syncCodeFromBoard(); renderCodePreview(); }
+  }
+  document.getElementById("modePaintBtn").onclick = () => setMode("paint");
+  document.getElementById("modeCodeBtn").onclick = () => setMode("code");
+  document.getElementById("sampleBtn").onclick = () => { codeArea.value = BATTLEFIELD; codeLast = BATTLEFIELD; codeHistory = []; codeFuture = []; lastBoardSvg = buildSVG(pages[cur]); renderCodePreview(); status.textContent = "已载入示例代码（战场图）"; };
+  ["colsInput", "rowsInput"].forEach(id => document.getElementById(id).addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("applySizeBtn").click(); }));
+
+  // 撤销/重做
+  function codeUndo() { if (!codeHistory.length) return; codeFuture.push(codeLast); codeLast = codeHistory.pop(); codeArea.value = codeLast; if (mode === "code") renderCodePreview(); status.textContent = "代码已撤销"; }
+  function codeRedo() { if (!codeFuture.length) return; codeHistory.push(codeLast); codeLast = codeFuture.pop(); codeArea.value = codeLast; if (mode === "code") renderCodePreview(); status.textContent = "代码已重做"; }
+  function undo() { if (mode === "code") codeUndo(); else { if (!history.length) return; future.push(clonePage(pages[cur])); pages[cur] = history.pop(); buildBoard(); status.textContent = "已撤销"; } }
+  function redo() { if (mode === "code") codeRedo(); else { if (!future.length) return; history.push(clonePage(pages[cur])); pages[cur] = future.pop(); buildBoard(); status.textContent = "已重做"; } }
+  document.getElementById("undoBtn").onclick = undo;
+  document.getElementById("redoBtn").onclick = redo;
+  window.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) { e.preventDefault(); redo(); }
+  });
+  codeArea.addEventListener("input", () => { codeHistory.push(codeLast); if (codeHistory.length > 120) codeHistory.shift(); codeFuture = []; codeLast = codeArea.value; if (mode === "code") renderCodePreview(); });
+
+  // 打开代码文件
+  document.getElementById("openFileBtn").onclick = () => document.getElementById("fileInput").click();
+  document.getElementById("fileInput").addEventListener("change", () => {
+    const f = document.getElementById("fileInput").files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { codeArea.value = rd.result; codeLast = codeArea.value; codeHistory = []; codeFuture = []; lastBoardSvg = buildSVG(pages[cur]); setMode("code"); status.textContent = "已打开文件：" + f.name; };
+    rd.readAsText(f);
+    document.getElementById("fileInput").value = "";
+  });
+
+  // 导入图片：把图片缩成 cols×rows 的小图，每格取色填进去
+  document.getElementById("importImgBtn").onclick = () => document.getElementById("imgInput").click();
+  document.getElementById("imgInput").addEventListener("change", () => {
+    const f = document.getElementById("imgInput").files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => { importImageToGrid(img); document.getElementById("imgInput").value = ""; };
+    img.onerror = () => { status.textContent = "图片读取失败"; status.classList.add("err"); };
+    img.src = URL.createObjectURL(f);
+  });
+  function importImageToGrid(img) {
+    const p = pages[cur];
+    snapshot();
+    const cv = document.createElement("canvas");
+    cv.width = p.cols; cv.height = p.rows;
+    const c2 = cv.getContext("2d");
+    c2.clearRect(0, 0, p.cols, p.rows);
+    const ir = img.width / img.height, gr = p.cols / p.rows;
+    let dw = p.cols, dh = p.rows, dx = 0, dy = 0;   // 保持比例，居中放入，空白处留空
+    if (ir > gr) { dh = p.cols / ir; dy = (p.rows - dh) / 2; }
+    else { dw = p.rows * ir; dx = (p.cols - dw) / 2; }
+    c2.imageSmoothingEnabled = true;
+    c2.drawImage(img, dx, dy, dw, dh);
+    const data = c2.getImageData(0, 0, p.cols, p.rows).data;
+    for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) {
+      const i = (r * p.cols + c) * 4, a = data[i + 3];
+      p.cells[r][c] = a < 128 ? null : ("#" + [data[i], data[i + 1], data[i + 2]].map(v => v.toString(16).padStart(2, "0")).join("")).toUpperCase();
+    }
+    if (mode !== "paint") setMode("paint"); else buildBoard();
+    status.classList.remove("err");
+    status.textContent = "已按当前 " + p.cols + " × " + p.rows + " 格子导入图片（想更清晰：把格子数调到 1920×1080 再导入）";
+  }
+
+  // 下载
+  document.getElementById("downloadSvgBtn").onclick = () => {
+    const svg = mode === "code" ? codeArea.value : artworkSVG(pages[cur]);
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    a.download = (mode === "code" ? "我的代码图" : pages[cur].name) + ".svg"; a.click(); URL.revokeObjectURL(a.href);
+  };
+  document.getElementById("downloadPngBtn").onclick = () => {
+    const cv = renderOffToCanvas(4096);   // 高清导出，封顶 4096 避免超大画布卡死
+    cv.toBlob(b => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = (mode === "code" ? "我的代码图" : pages[cur].name) + ".png"; a.click(); URL.revokeObjectURL(a.href); });
+    status.textContent = "已导出 PNG ✓";
+  };
+
+  window.addEventListener("resize", () => { if (mode === "paint") layoutBoard(); });
+
+  // 启动
+  status.textContent = "就绪 · 颜色 " + PALETTE.length + " 种，格子最高 " + MAXN + "×" + MAXN;
+  syncColorUI();
+  renderTabs();
+  setMode("paint");
+  zoom = fitZoom(); applyZoom();   // 首次自动缩放：让默认画布刚好铺满右屏
+</script>
+</body>
+</html>

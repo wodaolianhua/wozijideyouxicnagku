@@ -17,3 +17,6 @@ Thumbs.db
 # 密钥与内部配置（绝不入库）
 .env
 .workbuddy/
+
+# 用户小说稿（用户要求不推到 GitHub）
+AI写小说/
