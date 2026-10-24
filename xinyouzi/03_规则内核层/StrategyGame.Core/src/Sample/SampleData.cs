@@ -42,9 +42,10 @@ public static class SampleData
             ArmyMonthlyGrainPerSoldier = 200,
 
             // ===== 士气（绝对点数，非比率）=====
+            // 【契约 v1.3 基准】恢复 +3 / 腐化 −6 / 阈值 4（4_数值框架.md 5.2.2 定稿方案）。
             MoraleDecayPerMonth = 3,
-            MoraleDecayNoBattleThreshold = 6,
-            MoraleDecayNoBattlePerMonth = 2,
+            MoraleDecayNoBattleThreshold = 4,
+            MoraleDecayNoBattlePerMonth = 6,
             MoraleGainOnCapture = 10,
             MoraleLossOnRepel = 12,
             MoraleLossOnStalemate = 3,
@@ -68,7 +69,9 @@ public static class SampleData
             BaseLoss = 3500,
             BaseKill = 2700,
             SiegeThresholdLoss = 7000,
-            FieldBattleLossFactor = 6000,
+            // 【契约 v1.3 订正】野战战损乘数基准 6000 → 5000：
+            // lossRate = 0.35 × 0.5 × (2−2×0.5) = 0.175，与 3_战斗系统设计.md 3.5 节一致。
+            FieldBattleLossFactor = 5000,
             SiegeDefeatRoutRate = 0,
 
             // [已废弃 v1.2] 以下两项不参与任何计算。
@@ -76,13 +79,15 @@ public static class SampleData
             DefenderLossFactor = 0,
             StalemateLossRate = 0,
 
+            // 对齐 02 正式表（万分比）的占位副本。键为 "专长:岗位" 或 "专长:Any"。
             SpecialtyBonus = new Dictionary<string, int>
             {
-                { "Agriculture:FarmOverseer", 20 },
-                { "Siege:FortifyOverseer", 15 },
-                { "Cavalry:General", 15 },
-                { "Logistics:Any", 5 },
-                { "Diplomacy:Scoutmaster", 10 },
+                { "Agriculture:FarmOverseer", 2500 },
+                { "Agriculture:Any",          1000 },
+                { "Siege:General",            2000 },
+                { "Cavalry:General",          2000 },
+                { "Logistics:Any",            1500 },
+                { "Diplomacy:Any",            1000 },
             },
         };
 

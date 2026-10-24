@@ -191,7 +191,7 @@ public class DataContractTests
         Assert.Equal(3500, b.BaseLoss);
         Assert.Equal(2700, b.BaseKill);
         Assert.Equal(7000, b.SiegeThresholdLoss);
-        Assert.Equal(6000, b.FieldBattleLossFactor);
+        Assert.Equal(5000, b.FieldBattleLossFactor);
         Assert.Equal(200, b.ArmyMonthlyGrainPerSoldier);
         Assert.Equal(10000, b.SiegeDefeatRoutRate);
 

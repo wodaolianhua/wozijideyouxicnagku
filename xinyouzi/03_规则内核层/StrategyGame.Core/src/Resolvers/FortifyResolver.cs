@@ -66,7 +66,7 @@ public sealed class FortifyResolver : ResolverBase
         }
 
         return ValidateResources(
-            state, order, factionId, CalculateSilverCost(state, factionId, order.Amount), 0);
+            state, order, factionId, CalculateSilverCost(state, order.TargetId, order.Amount), 0);
     }
 
     /// <summary>执行修城防结算。纯函数，不修改 state。</summary>
@@ -91,7 +91,7 @@ public sealed class FortifyResolver : ResolverBase
         var faction = state.GetFaction(factionId)!;
         var city = state.GetCity(order.TargetId)!;
 
-        int silverCost = CalculateSilverCost(state, factionId, order.Amount);
+        int silverCost = CalculateSilverCost(state, order.TargetId, order.Amount);
         int defenseGain = CalculateDefenseGain(order.Amount);
         int newDefense = Math.Min(city.MaxDefense, city.Defense + defenseGain);
         int actualGain = newDefense - city.Defense;
@@ -134,13 +134,18 @@ public sealed class FortifyResolver : ResolverBase
     /// 计算修城防的银消耗。
     /// </summary>
     /// <param name="state">世界状态。只读。</param>
-    /// <param name="factionId">势力 Id。</param>
+    /// <param name="cityId">目标城池 Id。</param>
     /// <param name="amount">投入银量。</param>
     /// <returns>银消耗量。</returns>
-    private int CalculateSilverCost(WorldState state, int factionId, int amount)
+    /// <remarks>
+    /// 目标城军师佐政（<c>FortifyOverseer</c>）已生效时，按其政务 + 专长
+    /// 折算万分比折扣：<c>实付银 = max(0, baseCost × (10000 − 折扣) / 10000)</c>。
+    /// </remarks>
+    private int CalculateSilverCost(WorldState state, int cityId, int amount)
     {
         int baseCost = (int)((long)Config.BaseFortifyCostSilver * amount / PlaceholderNumbers.PercentBase);
-        return Math.Max(0, ScaleInteger(baseCost, GetGovernanceModifier(state, factionId)));
+        int discount = GetCityPostDiscount(state, cityId, PostType.FortifyOverseer, Config);
+        return ApplyDiscount(baseCost, discount);
     }
 
     /// <summary>
@@ -205,7 +210,7 @@ public sealed class FortifyResolver : ResolverBase
                     return "资源不足。";
                 }
 
-                int silverCost = CalculateSilverCost(state, factionId, order.Amount);
+                int silverCost = CalculateSilverCost(state, order.TargetId, order.Amount);
                 return RejectNoResources(
                     silverCost, 0, faction.Resources.Silver, faction.Resources.Grain).Message
                     ?? "资源不足。";

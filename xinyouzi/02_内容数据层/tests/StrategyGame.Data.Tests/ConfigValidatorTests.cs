@@ -560,6 +560,48 @@ public class ConfigValidatorTests
             Assert.True(e.Id > 0, $"事件 Id {e.Id} 必须为正整数。");
         }
     }
+
+    // ========================================================================
+    //  G. 契约 v1.3 新增校验：设计层硬约束
+    // ========================================================================
+
+    [Fact(DisplayName = "腐化强度不大于恢复必须被检出（契约 v1.3 设计硬约束）")]
+    public void TestValidator_腐化强度不大于恢复则报错()
+    {
+        var data = Loader.Good().LoadAll();
+
+        // 合法值：6 > 3，不应报此错——证明规则只拦「失效」配置
+        Assert2.NoIssue(ConfigValidator.Validate(data), ValidationCode.MoraleDecayNoBattleTooWeak);
+
+        // 把腐化强度降到 ≤ 恢复（这里取等于 3），机制净变化 ≥ 0，必须被拦下。
+        // 这条约束的价值：配置看起来完全正常，却让「和平腐化」形同虚设——
+        // 这正是 03 报出问题的根源，必须在 02 就挡住。
+        data.Balance.MoraleDecayNoBattlePerMonth = data.Balance.MoraleDecayPerMonth;
+        var result = ConfigValidator.Validate(data);
+
+        var issue = Assert2.HasError(result, ValidationCode.MoraleDecayNoBattleTooWeak);
+        Assert.Contains("不大于", issue.Message);
+        Assert.Contains(data.Balance.MoraleDecayPerMonth.ToString(), issue.Message);
+    }
+
+    [Fact(DisplayName = "野战乘数越界必须被检出（契约 v1.3 范围校验）")]
+    public void TestValidator_野战乘数越界则报错()
+    {
+        var data = Loader.Good().LoadAll();
+
+        // 合法值 5000 落在 4000~6000 闭区间，不应报此错
+        Assert2.NoIssue(ConfigValidator.Validate(data), ValidationCode.FieldBattleLossOutOfRange);
+
+        // 上限越界：6000 是闭区间上界，7000 越界
+        data.Balance.FieldBattleLossFactor = 7000;
+        var over = Assert2.HasError(ConfigValidator.Validate(data), ValidationCode.FieldBattleLossOutOfRange);
+        Assert.Contains("7000", over.Message);
+
+        // 下限越界：4000 是闭区间下界，3000 越界
+        data.Balance.FieldBattleLossFactor = 3000;
+        var under = Assert2.HasError(ConfigValidator.Validate(data), ValidationCode.FieldBattleLossOutOfRange);
+        Assert.Contains("3000", under.Message);
+    }
 }
 
 /// <summary>测试辅助扩展方法。</summary>

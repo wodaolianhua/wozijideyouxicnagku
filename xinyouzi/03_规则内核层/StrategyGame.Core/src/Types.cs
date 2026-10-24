@@ -178,6 +178,16 @@ public static class DeltaField
     /// <remarks>见 <c>MoraleSystem.ResolveMonthlyMorale</c> 的哗变分支。</remarks>
     public const string ArmyHasMutiniedThisMonth = "HasMutiniedThisMonth";
 
+    /// <summary>
+    /// 部队自上次士气月度结算以来是否参战（0/1）。契约 v1.4 新增的参战信号。
+    /// </summary>
+    /// <remarks>
+    /// 【必须进快照比对】该字段决定士气三分支走「参战周期」还是「恢复/腐化」，
+    /// 漏检会让确定性测试对士气结算出现假阴性。
+    /// 参见 <c>MoraleSystem.ResolveMonthlyMorale</c>。
+    /// </remarks>
+    public const string ArmyHasEngagedThisMonth = "HasEngagedThisMonth";
+
     /// <summary>部队的统帅 Id，-1 表示无。</summary>
     public const string ArmyOfficerId = "OfficerId";
 

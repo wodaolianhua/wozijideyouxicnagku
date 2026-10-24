@@ -81,10 +81,11 @@ public static class StateSnapshot
             sb.AppendLine($"Army[{a.Id}].TargetCityId={a.TargetCityId}");
             sb.AppendLine($"Army[{a.Id}].Stance={a.Stance}");
             sb.AppendLine($"Army[{a.Id}].HasRestedThisMonth={a.HasRestedThisMonth}");
-            // v1.2 新增的两个士气字段。漏登记会让确定性/纯净性测试
-            // 对「和平腐化」「哗变」这两个新机制变成假阴性。
+            // v1.2/v1.4 新增的士气字段。漏登记会让确定性/纯净性测试
+            // 对「和平腐化」「哗变」「参战周期判定」这些机制变成假阴性。
             sb.AppendLine($"Army[{a.Id}].MonthsWithoutBattle={a.MonthsWithoutBattle}");
             sb.AppendLine($"Army[{a.Id}].HasMutiniedThisMonth={a.HasMutiniedThisMonth}");
+            sb.AppendLine($"Army[{a.Id}].HasEngagedThisMonth={a.HasEngagedThisMonth}");
         }
 
         foreach (var o in state.Officers.OrderBy(x => x.Id))

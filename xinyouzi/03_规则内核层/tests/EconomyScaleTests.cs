@@ -30,6 +30,10 @@ public sealed class EconomyScaleTests
     /// <summary>
     /// 粮产 = Σ人口 × GrainPerPopPerMonth / 10000，且按万分比向下取整。
     /// </summary>
+    /// <remarks>
+    /// 本测试只锁「万分比刻度与截断方向」单一变量，故 FarmLevel 置 0；
+    /// 屯田等级加成另有 PostEffects 专项测试覆盖。
+    /// </remarks>
     [Fact]
     public void 粮产_按万分比结算并向下取整()
     {
@@ -41,7 +45,7 @@ public sealed class EconomyScaleTests
         {
             Id = 0, Name = "测试城", OwnerFactionId = 0,
             Population = 3000, MaxPopulation = 10_000, Defense = 100, MaxDefense = 300,
-            FortifyLevel = 1, FarmLevel = 1, IsCapital = true,
+            FortifyLevel = 1, FarmLevel = 0, IsCapital = true,
             Terrain = TerrainType.Plain, AdjacentCityIds = new List<int>(),
         });
 
@@ -52,7 +56,13 @@ public sealed class EconomyScaleTests
         Assert.Equal(grainBefore + 240, state.GetFaction(0)!.Resources.Grain);
     }
 
-    /// <summary>粮产截断方向：9999 人口 × 800/10000 = 799.92 → 799。</summary>
+    /// <summary>
+    /// 粮产截断方向：9999 人口 × 800/10000 = 799.92 → 799。
+    /// </summary>
+    /// <remarks>
+    /// 本测试只锁截断方向单一变量，故 FarmLevel 置 0；
+    /// 屯田等级加成另有 PostEffects 专项测试覆盖。
+    /// </remarks>
     [Fact]
     public void 粮产_截断方向向下()
     {
@@ -62,7 +72,7 @@ public sealed class EconomyScaleTests
         {
             Id = 0, Name = "测试城", OwnerFactionId = 0,
             Population = 9999, MaxPopulation = 10_000, Defense = 100, MaxDefense = 300,
-            FortifyLevel = 1, FarmLevel = 1, IsCapital = true,
+            FortifyLevel = 1, FarmLevel = 0, IsCapital = true,
             Terrain = TerrainType.Plain, AdjacentCityIds = new List<int>(),
         });
 

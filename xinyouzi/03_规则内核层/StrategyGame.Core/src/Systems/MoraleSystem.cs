@@ -44,25 +44,37 @@ public sealed class MoraleSystem
     }
 
     /// <summary>
-    /// 月度士气结算：自然恢复、和平腐化、哗变检查。
+    /// 月度士气结算：参战周期判定、自然恢复 / 和平腐化（互斥）、哗变检查。
     /// </summary>
     /// <param name="state">世界状态。只读。</param>
-    /// <returns>状态增量列表。含士气、连续未参战月数、哗变兵力与标记。</returns>
+    /// <returns>状态增量列表。含月初标记翻转、士气、连续未参战月数、参战标记消费与哗变兵力。</returns>
     /// <remarks>
-    /// 【流程，对每支部队】
+    /// 【流程，对每支部队（按序）】
     /// <code>
-    /// 1. MonthsWithoutBattle += 1
-    /// 2. morale += MoraleDecayPerMonth                      // 自然恢复
-    /// 3. 若 MonthsWithoutBattle &gt;= 阈值 →再减 MoraleDecayNoBattlePerMonth   // 和平腐化
+    /// 0. 月度标记月初翻转（第 3 轮补丁·修复二）：HasRestedThisMonth /
+    ///    HasMutiniedThisMonth 语义都是「同一月内防重复」，月度结算开头先翻转
+    ///    （仅当为 true 时产出 1→0 delta），再走三分支。
+    ///    【先清后判】翻转只产出 delta、不改 state（纯函数约束），哗变判定
+    ///    使用翻转后的局部值：上月哗变、本月士气仍 ≤ 0 的部队允许再次哗变。
+    /// 1. 若 HasEngagedThisMonth（本结算周期内参过战，v1.4 参战信号）：
+    ///    不恢复、不腐化——战斗增减已在战斗结算时由 DispatchResolver 按 5.4 结过；
+    ///    MonthsWithoutBattle 保持不变（战斗时已清零，不 +1）；
+    ///    参战标记消费即清（1 → 0）。
+    /// 2. 未参战，且 MonthsWithoutBattle + 1 &lt; 阈值 → morale += MoraleDecayPerMonth（恢复）
+    /// 3. 未参战，且 MonthsWithoutBattle + 1 ≥ 阈值 → morale -= MoraleDecayNoBattlePerMonth（腐化）
     /// 4. morale 夹到 [0, MoraleMax]
-    /// 5. morale &lt;= 0 且未哗变过 → 解散 MutinyRoutRate 比例兵力并标记
+    /// 5. morale ≤ 0 且未哗变过（按翻转后的标记）→ 解散 MutinyRoutRate 比例兵力并标记（两个分支都判）
     /// </code>
     ///
-    /// 【为什么先累加再判定】阈值 6 的语义是「连续 6 个月没打仗就开始腐化」，
-    /// 因此本月是第 6 个无战月时当月就应扣，而不是等到第 7 月。
+    /// 【为什么先读标记再 +1】参战信号（v1.4）解决「计数为 0 无法区分新部队与刚参战」
+    /// 的信号碰撞：新部队标记默认 false，开局第一次结算走恢复分支；
+    /// 刚参战的部队标记为 true，当月结算不恢复不腐化。
     ///
-    /// 【和平腐化是双刃剑】它逼玩家在「休整」与「趁胜追击」之间做选择，
-    /// 让时间成为真正的战略资源，而不是无脑连续开战。
+    /// 【为什么先累加再判定】阈值 4 的语义是「连续 4 个月没打仗就开始腐化」，
+    /// 因此本月是第 4 个无战月时当月就应扣，而不是等到第 5 月。
+    ///
+    /// 【恢复与腐化绝对不得在同一个月同时生效】这是第 2 轮补丁的核心。
+    /// 早期实现无脑先 +3 再看是否叠加扣减，导致「无脑连续攻城」成为最优解。
     /// </remarks>
     public List<StateDelta> ResolveMonthlyMorale(WorldState state)
     {
@@ -77,16 +89,77 @@ public sealed class MoraleSystem
                 continue;
             }
 
-            int monthsWithoutBattle = army.MonthsWithoutBattle + 1;
-            int morale = army.Morale + _config.MoraleDecayPerMonth;
-
-            bool rotting = monthsWithoutBattle >= _config.MoraleDecayNoBattleThreshold;
-            if (rotting)
+            // ---- 步骤 0：月度标记月初翻转（第 3 轮补丁·修复二）----
+            // HasRestedThisMonth 旧实现只在出兵时清零，纯休整部队一生只能休整一次；
+            // HasMutiniedThisMonth 从不清零，哗变一生只有一次。两者语义都是
+            // 「同一月内防重复」，因此在每次月度结算开头统一翻转。
+            // 注意：翻转只产出 delta，不改 state（纯函数约束）；
+            // RestResolver / DispatchResolver 对这两个字段的现有写法不动。
+            if (army.HasRestedThisMonth)
             {
-                morale -= _config.MoraleDecayNoBattlePerMonth;
+                deltas.Add(new StateDelta
+                {
+                    TargetType = DeltaTarget.Army,
+                    TargetId = army.Id,
+                    Field = DeltaField.ArmyHasRested,
+                    OldValue = 1,
+                    NewValue = 0,
+                });
             }
 
-            int newMorale = Math.Clamp(morale, 0, Math.Max(0, army.MoraleMax));
+            // 【先清后判】哗变判定用翻转后的局部值：上月哗变、本月士气仍崩溃
+            // （如参战分支不恢复）→ 允许再次哗变。「哗变一生一次」就此消除。
+            bool hasMutiniedThisCycle = army.HasMutiniedThisMonth;
+            if (hasMutiniedThisCycle)
+            {
+                deltas.Add(new StateDelta
+                {
+                    TargetType = DeltaTarget.Army,
+                    TargetId = army.Id,
+                    Field = DeltaField.ArmyHasMutiniedThisMonth,
+                    OldValue = 1,
+                    NewValue = 0,
+                });
+
+                // 先清：本结算周期内按翻转后的值（false）参与哗变判定。
+                hasMutiniedThisCycle = false;
+            }
+
+            int newMorale;
+            int monthsWithoutBattle;
+
+            if (army.HasEngagedThisMonth)
+            {
+                // ---- 分支一：参战周期 ----
+                // 本结算周期内发生过战斗：士气增减已由战斗结算（5.4）结过，
+                // 月度结算既不恢复也不腐化；计数保持（战斗时已清零），标记消费即清。
+                newMorale = army.Morale;
+                monthsWithoutBattle = army.MonthsWithoutBattle;
+
+                deltas.Add(new StateDelta
+                {
+                    TargetType = DeltaTarget.Army,
+                    TargetId = army.Id,
+                    Field = DeltaField.ArmyHasEngagedThisMonth,
+                    OldValue = army.HasEngagedThisMonth ? 1 : 0,
+                    NewValue = 0,
+                });
+            }
+            else
+            {
+                // ---- 分支二 / 三：未参战月（恢复与腐化互斥，按序判定）----
+                // 用结算前的值 +1 后比较：本月是第 4 个无战月时当月就扣。
+                monthsWithoutBattle = army.MonthsWithoutBattle + 1;
+
+                bool rotting = monthsWithoutBattle >= _config.MoraleDecayNoBattleThreshold;
+
+                // 恢复与腐化绝对不得在同一个月同时生效（第 2 轮补丁核心）。
+                newMorale = rotting
+                    ? army.Morale - _config.MoraleDecayNoBattlePerMonth
+                    : army.Morale + _config.MoraleDecayPerMonth;
+
+                newMorale = Math.Clamp(newMorale, 0, Math.Max(0, army.MoraleMax));
+            }
 
             if (newMorale != army.Morale)
             {
@@ -121,7 +194,7 @@ public sealed class MoraleSystem
             // 因此判定取「结算前/后」两者的较小值。
             int moraleFloor = Math.Min(army.Morale, newMorale);
 
-            if (moraleFloor <= 0 && !army.HasMutiniedThisMonth)
+            if (moraleFloor <= 0 && !hasMutiniedThisCycle)
             {
                 int rout = (int)((long)army.Soldiers * _config.MutinyRoutRate
                     / EconomySystem.RatioBase);
@@ -140,7 +213,9 @@ public sealed class MoraleSystem
                     TargetType = DeltaTarget.Army,
                     TargetId = army.Id,
                     Field = DeltaField.ArmyHasMutiniedThisMonth,
-                    OldValue = army.HasMutiniedThisMonth ? 1 : 0,
+                    // OldValue 取翻转后的当前值：月初翻转 delta（1→0）已先于本条
+                    // 在同一列表内产出，哗变置位时刻标记的当前值恒为 0。
+                    OldValue = 0,
                     NewValue = 1,
                 });
             }

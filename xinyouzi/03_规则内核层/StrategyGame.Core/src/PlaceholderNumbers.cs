@@ -33,13 +33,22 @@ public static class PlaceholderNumbers
     public const int PercentBase = 100;
 
     /// <summary>
-    /// 每名在岗人才提供的政务修正（百分点）。
+    /// 每点政务折算的加成（万分比）。基准 50 = 每点政务 +0.5%。
     /// </summary>
     /// <remarks>
-    /// TODO(设计): 待人事制度定稿后替换。当前为让流程可跑通的线性占位值，
-    /// 定稿后应由 BalanceConfig 或数值表提供，不再硬编码在此。
+    /// TODO(数值): 待 06 模拟调参后回收为正式值。数据来源：岗位取才裁决公式
+    /// <c>G × officer.Governance</c> 中的系数 G，本轮按裁决基准 50 落地。
     /// </remarks>
-    public const int GovernanceBonusPerPostedOfficer = 5;
+    public const int GovernancePointToBonusPerMille = 50;
+
+    /// <summary>
+    /// 每级屯田等级提供的粮产加成（万分比）。基准 1500 = 每级 +15%。
+    /// </summary>
+    /// <remarks>
+    /// TODO(数值): 待 06 模拟调参后回收为正式值。数据来源：4_数值框架.md「粮产」节
+    /// <c>屯田等级加成 = 10000 + FarmLevel × 1500</c>。
+    /// </remarks>
+    public const int FarmLevelBonusPerMille = 1500;
 
     /// <summary>
     /// 征兵时每名士兵消耗的粮（占 BaseRecruitCostGrain 的比例基数之外的附加）。
@@ -78,12 +87,8 @@ public static class PlaceholderNumbers
     /// 稳定度过低时势力民心每月的额外流失（绝对点数）。
     /// </summary>
     /// <remarks>
-    /// 【为什么它不在 BalanceConfig 里】它属于「势力民心」而非「部队士气」，
-    /// 而契约尚未给势力民心衰减提供配置字段。
-    /// 契约 <c>MoraleDecayPerMonth</c> 属<b>部队士气</b>自然恢复
-    /// （4_数值框架.md 5.2，作用对象是 <c>Army.Morale</c>），
-    /// 拿它去衰减 <c>Resources.Morale</c>（势力民心）是把两个不同物混为一谈。
-    /// <para>TODO(设计): 01 包为势力民心衰减定稿并加入 BalanceConfig 后，本常量删除。</para>
+    /// 现用途：低稳定度民心流失（EconomySystem.ResolveMoraleAndStability，TurnPipelineTests 已锁定）。
+    /// 05B 实时战斗若需士气流失模型，<b>新增独立配置项，禁止挪用本项</b>。
     /// </remarks>
     public const int UnstableMoraleLoss = 2;
 

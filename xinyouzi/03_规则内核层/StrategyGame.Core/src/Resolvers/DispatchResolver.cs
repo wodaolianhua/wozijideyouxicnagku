@@ -24,7 +24,7 @@ namespace StrategyGame.Core.Resolvers;
 ///   2. 出发城归属本势力 → Rejected_InvalidTarget
 ///   3. 两城相邻 → Rejected_NotAdjacent
 ///   4. 存在可调动部队且兵力充足 → Rejected_NoResources
-///   5. 目标城未被围困 → Rejected_TargetOccupied
+///   5. 目标城未被围困 → Rejected_TargetSieged（同阵营围城部队豁免）
     ///   6. 人力未满 → Rejected_InsufficientCapacity
     /// </remarks>
     /// <remarks>
@@ -95,16 +95,21 @@ public sealed class DispatchResolver : ResolverBase
             return ResolveResultCode.RejectedNoResources;
         }
 
-        // 目标若已被围困（内有Besieging 部队），下月不可再对该城Dispatch。
+        // 目标若被敌对阵营围困（城内有敌方 Besieging 部队），本月不可再对该城Dispatch。
+        // 【第 3 轮补丁·修复一】同阵营的围城部队豁免——只有敌对阵营的围城部队
+        // 才算围困。否则僵持后攻方滞留敌城、姿态 Besieging，会被自家围城标记
+        // 拦死在下月之外，与僵持事件「下月可再战」直接矛盾。
         bool underSiege = state.Armies.Any(a =>
-            a.PositionCityId == order.TargetId && a.Stance == ArmyStance.Besieging);
+            a.PositionCityId == order.TargetId
+            && a.Stance == ArmyStance.Besieging
+            && a.OwnerFactionId != factionId);
 
         if (underSiege)
         {
-            // 设计文档写作 RejectedTargetSieged，但契约 v1.2 的枚举中
-            // 没有该成员；RejectedTargetOccupied 的契约注释已含「或正在被围」，
-            // 语义一致。此处按现有契约返回，并已上报契约缺口。
-            return ResolveResultCode.RejectedTargetOccupied;
+            // 契约 v1.3 起提供独立结果码：围困是临时状态（下月可能解除，等一等），
+            // 与永久性的 RejectedTargetOccupied（已被其他势力占领，换目标）区分。
+            // v1.2 时代曾因枚举缺成员而暂用 RejectedTargetOccupied，现正名。
+            return ResolveResultCode.RejectedTargetSieged;
         }
 
         return ValidateCapacity(state);
@@ -223,13 +228,35 @@ public sealed class DispatchResolver : ResolverBase
             result.WithDelta(
                 DeltaTarget.Army, defender.Id, DeltaField.ArmySoldiers,
                 defender.Soldiers, newDefenderSoldiers);
+
+            // ---- 守军参战信号（第 3 轮补丁·修复三，与攻方对称）----
+            // 参战即重置「连续未参战月数」并置「本周期参战」标记（契约 v1.4）：
+            // 缺了这两个 delta，被围城的守军头 3 个月照走恢复分支每月 +3 回血，
+            // 第 4 月起又在「实际在打仗」的同时被腐化 −6。
+            // 守方士气 −4 已由 CalculateDefenderMoraleDelta 在下方结过，
+            // 次月结算读到标记为 true 即走参战分支（不恢复、不腐化）。
+            // 没有参战的部队（不在 defenders 列表）不置位。
+            result.WithDelta(
+                DeltaTarget.Army, defender.Id, DeltaField.ArmyHasEngagedThisMonth,
+                defender.HasEngagedThisMonth ? 1 : 0, 1);
+
+            result.WithDelta(
+                DeltaTarget.Army, defender.Id, DeltaField.ArmyMonthsWithoutBattle,
+                defender.MonthsWithoutBattle, 0);
         }
 
-        // ---- 参战即重置「连续未参战月数」 ----
-        // 和平腐化的判定依据就是该字段；打过仗的部队不该继续腐化。
+        // ---- 参战即重置「连续未参战月数」，并置「本周期参战」标记（契约 v1.4）----
+        // 和平腐化的判定依据就是计数与标记：打过仗的部队不该继续腐化，
+        // 下月第 3 步士气结算读到标记为 true 即走「参战周期」分支（不恢复、不腐化），
+        // 读后由 MoraleSystem 消费清零。攻守对称：守方的同组 delta 已在
+        // 上方守军损失分摊循环内补发（第 3 轮补丁·修复三）。
         result.WithDelta(
             DeltaTarget.Army, army.Id, DeltaField.ArmyMonthsWithoutBattle,
             army.MonthsWithoutBattle, 0);
+
+        result.WithDelta(
+            DeltaTarget.Army, army.Id, DeltaField.ArmyHasEngagedThisMonth,
+            army.HasEngagedThisMonth ? 1 : 0, 1);
 
         // ---- 战果分支 ----
         switch (battle.Outcome)
@@ -507,23 +534,51 @@ public sealed class DispatchResolver : ResolverBase
     /// <param name="factionId">势力 Id。</param>
     /// <returns>符合条件的部队；无则返回 null。</returns>
     /// <remarks>
-    /// 优先选择统帅能力最高者，以体现「派名将上」的策略价值。
-    /// 同统帅值时按部队 Id 升序打破平局，保证结果确定——
+    /// 【两轮查找（第 3 轮补丁·修复一）】
+    ///   第一轮（原规则）：从出发城（SecondaryTargetId）的己方部队中选；
+    ///   第二轮兜底：第一轮找不到时，在「已滞留目标城下围城」的己方部队中选。
+    ///   僵持（未决）后攻方驻在敌城、不在任何己方出发城，若无第二轮，
+    ///   这支部队从此无法被再次调度，城也永远打不了——部队与城双死锁。
+    ///   续攻指令的 SecondaryTargetId 仍传相邻城，语义为补给方向，
+    ///   Validate 的相邻性校验维持不变。
+    /// 两轮同样统帅优先、同统帅按部队 Id 升序打破平局，保证确定——
     /// 遍历顺序不定会让无头模拟产生不可复现的结果。
     /// </remarks>
     private static Army? FindDispatchableArmy(WorldState state, Order order, int factionId)
+    {
+        // 第一轮：出发城内的己方部队（原规则，优先级不变）。
+        var army = PickBestArmy(
+            state,
+            factionId,
+            a => a.PositionCityId == order.SecondaryTargetId);
+
+        if (army != null)
+        {
+            return army;
+        }
+
+        // 第二轮兜底：目标城下的己方围城部队就地再战。
+        return PickBestArmy(
+            state,
+            factionId,
+            a => a.PositionCityId == order.TargetId && a.Stance == ArmyStance.Besieging);
+    }
+
+    /// <summary>
+    /// 在己方、有兵的部队中按条件挑选统帅最高者。
+    /// </summary>
+    /// <param name="state">世界状态。只读。</param>
+    /// <param name="factionId">势力 Id。</param>
+    /// <param name="predicate">候选条件（位置/姿态）。</param>
+    /// <returns>统帅最高的候选部队；无则返回 null。</returns>
+    private static Army? PickBestArmy(WorldState state, int factionId, Func<Army, bool> predicate)
     {
         Army? best = null;
         int bestCommand = int.MinValue;
 
         foreach (var army in state.Armies)
         {
-            if (army.OwnerFactionId != factionId || army.PositionCityId != order.SecondaryTargetId)
-            {
-                continue;
-            }
-
-            if (army.Soldiers <= 0)
+            if (army.OwnerFactionId != factionId || army.Soldiers <= 0 || !predicate(army))
             {
                 continue;
             }
@@ -582,10 +637,10 @@ public sealed class DispatchResolver : ResolverBase
                 return $"「{origin?.Name}」与「{target?.Name}」不相邻，无法出兵。";
             }
 
-            case ResolveResultCode.RejectedTargetOccupied:
+            case ResolveResultCode.RejectedTargetSieged:
             {
                 var target = state.GetCity(order.TargetId);
-                return $"「{target?.Name}」已被围困，下月不可再对该城出兵。";
+                return $"「{target?.Name}」正被围困，本月无法再对该城出兵，下月再试。";
             }
 
             case ResolveResultCode.RejectedNoResources:

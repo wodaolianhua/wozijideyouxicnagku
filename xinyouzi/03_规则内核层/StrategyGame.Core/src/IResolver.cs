@@ -242,28 +242,55 @@ public abstract class ResolverBase : IResolver
     }
 
     /// <summary>
-    /// 计算势力当前的生产修正系数（百分比）。
+    /// 取目标城「已生效」在岗人才并计算其岗位折扣（万分比）。
     /// </summary>
     /// <param name="state">世界状态。只读。</param>
-    /// <param name="factionId">势力 Id。</param>
-    /// <returns>修正百分比，基准为 <see cref="PlaceholderNumbers.PercentBase"/>。</returns>
+    /// <param name="cityId">目标城池 Id。</param>
+    /// <param name="requiredPost">所需岗位。人才实际岗位不符则折扣为 0。</param>
+    /// <param name="config">数值配置。</param>
+    /// <returns>万分比折扣；城池不存在或岗位不对口时为 0。</returns>
     /// <remarks>
-    /// TODO(设计): 待人事制度定稿后替换。
-    /// 当前按在岗人才数量给出线性修正，具体系数需由 01 包数值框架确定。
+    /// 仅当该城已生效在岗人才的 <c>Post == requiredPost</c> 时返回其
+    /// <see cref="PostEffects.GetBonus"/>（政务 + 专长，万分比），否则 0。
+    /// 生效窗口由 <see cref="PostEffects.GetEffectiveCityOfficer"/> 保证。
     /// </remarks>
-    protected int GetGovernanceModifier(WorldState state, int factionId)
+    protected static int GetCityPostDiscount(
+        WorldState state,
+        int cityId,
+        PostType requiredPost,
+        BalanceConfig config)
     {
-        int postedCount = 0;
-        foreach (var officer in state.GetOfficersOfFaction(factionId))
+        var city = state.GetCity(cityId);
+        if (city == null)
         {
-            if (officer.Post != PostType.None)
-            {
-                postedCount++;
-            }
+            return 0;
         }
 
-        // TODO(设计): 每名在岗人才的修正系数，待数值框架定稿后替换。
-        return postedCount * PlaceholderNumbers.GovernanceBonusPerPostedOfficer;
+        var officer = PostEffects.GetEffectiveCityOfficer(state, city, config);
+        if (officer == null || officer.Post != requiredPost)
+        {
+            return 0;
+        }
+
+        return PostEffects.GetBonus(officer, requiredPost, config);
+    }
+
+    /// <summary>
+    /// 按万分比折扣计算实付成本。
+    /// </summary>
+    /// <param name="baseCost">基础成本。</param>
+    /// <param name="discountPerMille">折扣（万分比），负数按 0 处理。</param>
+    /// <returns>实付银 = max(0, baseCost × (10000 − 折扣) / 10000)，向下取整。</returns>
+    /// <remarks>
+    /// 分母复用 <c>EconomySystem.RatioBase</c>（全程序唯一万分比基数，不另造常量）。
+    /// </remarks>
+    protected static int ApplyDiscount(int baseCost, int discountPerMille)
+    {
+        int effective = Math.Max(0, discountPerMille);
+        return (int)Math.Max(
+            0,
+            (long)baseCost * Math.Max(0, StrategyGame.Core.Systems.EconomySystem.RatioBase - effective)
+                / StrategyGame.Core.Systems.EconomySystem.RatioBase);
     }
 
     /// <summary>

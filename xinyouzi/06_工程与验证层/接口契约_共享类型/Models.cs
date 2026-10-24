@@ -84,7 +84,8 @@ public sealed class Army
     /// <summary>移动目的地城池 Id，-1 表示无移动计划。</summary>
     public int TargetCityId { get; set; } = -1;
     public ArmyStance Stance { get; set; }
-    /// <summary>本月已执行过 Rest，防止反复休整刷士气。</summary>
+    /// <summary>本月已执行过 Rest，防止同月反复休整刷士气。
+    /// 月初士气结算（MoraleSystem）统一翻转为 false，因此每月可休整一次。</summary>
     public bool HasRestedThisMonth { get; set; }
 
     /// <summary>连续未参与战斗的月数。达到 <see cref="BalanceConfig.MoraleDecayNoBattleThreshold"/>
@@ -92,8 +93,18 @@ public sealed class Army
     /// 让"该休整还是该趁胜追击"成为一个真实的战略选择。</summary>
     public int MonthsWithoutBattle { get; set; }
 
-    /// <summary>士气是否已触发哗变（同一月内防止重复触发）。</summary>
+    /// <summary>本结算周期内是否已触发哗变（同一月内防止重复触发）。
+    /// 月初士气结算（MoraleSystem）先翻转为 false 再做判定（先清后判）：
+    /// 上月哗变、本月士气仍 ≤ 0 时允许再次哗变。</summary>
     public bool HasMutiniedThisMonth { get; set; }
+
+    /// <summary>自上次士气月度结算以来是否参战（契约 v1.4）。
+    /// <para><b>生命周期（与 11 步流水线对齐）</b>：DispatchResolver 在第 7 步
+    /// 战斗发生时置 true（攻守双方对称）并把 MonthsWithoutBattle 清零；
+    /// MoraleSystem 在下月第 3 步读取：true = 参战周期，不恢复不腐化，读完置回 false。
+    /// 新设部队默认 false，因此开局第一次士气结算不会被误判为参战——
+    /// 这解决了「MonthsWithoutBattle == 0 无法区分新部队与刚参战部队」的信号碰撞。</para></summary>
+    public bool HasEngagedThisMonth { get; set; }
 
     public Army Clone() => new()
     {
@@ -102,7 +113,8 @@ public sealed class Army
         PositionCityId = PositionCityId, TargetCityId = TargetCityId,
         Stance = Stance, HasRestedThisMonth = HasRestedThisMonth,
         MonthsWithoutBattle = MonthsWithoutBattle,
-        HasMutiniedThisMonth = HasMutiniedThisMonth
+        HasMutiniedThisMonth = HasMutiniedThisMonth,
+        HasEngagedThisMonth = HasEngagedThisMonth
     };
 
     /// <summary>士气惩罚倍率（万分比）。10000 = 无惩罚。

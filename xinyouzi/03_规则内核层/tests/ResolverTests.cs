@@ -319,12 +319,13 @@ public sealed class DispatchResolverTests
     }
 
     /// <summary>
-    /// 拒绝路径：目标已被围困 → RejectedTargetOccupied。
+    /// 拒绝路径：目标已被围困 → RejectedTargetSieged（契约 v1.3 新增独立结果码）。
     /// </summary>
     /// <remarks>
     /// 【语义变更】战斗系统落地后，「目标城内有敌军」不再是拒绝理由——
     /// 那正是攻城战的正常场景。真正的拒绝条件是「已被围困」，
-    /// 即已有部队处于 Besieging 状态。故本例改为让敌军处于围城姿态。
+    /// 即已有部队处于 Besieging 状态。故本例让敌军处于围城姿态。
+    /// 围困是临时状态（等下月），区别于永久性的 RejectedTargetOccupied。
     /// </remarks>
     [Fact]
     public void Resolve_UnderSiege_ShouldReject()
@@ -344,7 +345,7 @@ public sealed class DispatchResolverTests
 
         var result = resolver.Resolve(state, order);
 
-        Assert.Equal(ResolveResultCode.RejectedTargetOccupied, result.Code);
+        Assert.Equal(ResolveResultCode.RejectedTargetSieged, result.Code);
     }
 
     /// <summary>拒绝路径：兵力超过现有 → RejectedNoResources。</summary>

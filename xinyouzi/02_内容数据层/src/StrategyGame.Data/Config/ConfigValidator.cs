@@ -66,6 +66,13 @@ public static class ValidationCode
     /// <summary>Ratio类系数超出万分比区间。</summary>
     public const string RatioOutOfRange = "RATIO_OUT_OF_RANGE";
 
+    // ===== 契约 v1.3 新增 =====
+    /// <summary>和平腐化强度未大于士气自然恢复，机制在数学上失效（净变化 ≥ 0）。</summary>
+    public const string MoraleDecayNoBattleTooWeak = "MORALE_DECAY_NOBATTLE_TOO_WEAK";
+
+    /// <summary>野战战损乘数偏离设计区间（4000~6000）。</summary>
+    public const string FieldBattleLossOutOfRange = "FIELD_BATTLE_LOSS_OUT_OF_RANGE";
+
     // ===== 词库 =====
     public const string NameBankMissing = "NAME_BANK_MISSING";
     public const string NameBankTooSmall = "NAME_BANK_TOO_SMALL";
@@ -196,6 +203,20 @@ public static class ConfigValidator
         CheckNonNegative(r, loc, "moraleLossOnStalemate", b.MoraleLossOnStalemate);
         CheckNonNegative(r, loc, "moraleLossOnDefend", b.MoraleLossOnDefend);
 
+        // ---- 设计层硬约束：和平腐化必须强于士气自然恢复 ----
+        // 若 moraleDecayNoBattlePerMonth ≤ moraleDecayPerMonth，则「和平腐化」机制
+        // 在数学上永远不产生净效果（每月净变化 ≥ 0），配置看起来完全正常，
+        // 却让这套机制形同虚设——这正是 03 报出问题的根源。用校验器当场拦下，
+        // 避免错误一路流到 03 才暴露成「腐化好像没用」。
+        if (b.MoraleDecayNoBattlePerMonth <= b.MoraleDecayPerMonth)
+        {
+            r.Error(ValidationCode.MoraleDecayNoBattleTooWeak, $"{loc}#moraleDecayNoBattlePerMonth",
+                $"moraleDecayNoBattlePerMonth = {b.MoraleDecayNoBattlePerMonth} 不大于 "
+                + $"moraleDecayPerMonth = {b.MoraleDecayPerMonth}。"
+                + "设计硬约束：和平腐化强度必须大于士气自然恢复，否则「和平腐化」"
+                + "机制净变化 ≥ 0，永远不产生下滑效果。请调大前者或调小后者。");
+        }
+
         // ---- 02 自己的平衡细则（不进契约，但同样要校验）----
         var e = data.Extended;
         CheckNonNegative(r, $"{loc}#extendedBalance.stabilityNaturalRecovery", e.StabilityNaturalRecovery);
@@ -230,6 +251,20 @@ public static class ConfigValidator
         CheckRatio(r, $"{loc}#baseKill", "攻城守方被歼率", b.BaseKill);
         CheckRatio(r, $"{loc}#siegeThresholdLoss", "攻城击退阈值", b.SiegeThresholdLoss);
         CheckRatio(r, $"{loc}#fieldBattleLossFactor", "野战战损乘数", b.FieldBattleLossFactor);
+
+        // ---- 野战乘数范围校验（契约 v1.3）----
+        // 野战的设计意图是「无城墙消耗、规避城防」，偏离 0.5 太多会破坏这个意图：
+        // 4000（40%）以下野战反而不如攻城划算，6000（60%）以上又把野战自损抬太高，
+        // 削弱「野战规避城防」的相对优势。这是范围校验，不是等式校验。
+        const int fieldBattleLossMin = 4000;
+        const int fieldBattleLossMax = 6000;
+        if (b.FieldBattleLossFactor < fieldBattleLossMin || b.FieldBattleLossFactor > fieldBattleLossMax)
+        {
+            r.Error(ValidationCode.FieldBattleLossOutOfRange, $"{loc}#fieldBattleLossFactor",
+                $"fieldBattleLossFactor = {b.FieldBattleLossFactor}，合法区间 {fieldBattleLossMin}-{fieldBattleLossMax}"
+                + "（= 40%~60%）。野战的设计意图是规避城防，偏离 0.5 太远会破坏"
+                + "「野战更划算」的相对优势。");
+        }
         CheckRatio(r, $"{loc}#armyMonthlyGrainPerSoldier", "每兵每月耗粮", b.ArmyMonthlyGrainPerSoldier);
         CheckRatio(r, $"{loc}#siegeDefeatRoutRate", "攻陷后守军逃散比例", b.SiegeDefeatRoutRate);
         CheckRatio(r, $"{loc}#mutinyRoutRate", "哗变解散兵力比例", b.MutinyRoutRate);

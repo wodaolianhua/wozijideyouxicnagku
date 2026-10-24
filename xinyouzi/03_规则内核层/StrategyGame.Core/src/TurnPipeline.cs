@@ -154,10 +154,14 @@ public sealed class TurnPipeline : ITurnPipeline
         ApplyDeltas(state, deltas);
 
         // 哗变事件：HasMutiniedThisMonth 由 0 变 1 的部队即为本月哗变者。
+        // 【第 3 轮补丁·修复二配套】月初翻转（1→0）也走该字段，但那不是哗变：
+        // 只有真正置位（NewValue = 1）的 delta 才对应本月经历的哗变；
+        // 若不过滤，上月哗变过的部队每月初都会被翻转 delta 刷出一条假哗变事件。
         foreach (var delta in deltas)
         {
             if (delta.TargetType != DeltaTarget.Army
-                || delta.Field != DeltaField.ArmyHasMutiniedThisMonth)
+                || delta.Field != DeltaField.ArmyHasMutiniedThisMonth
+                || delta.NewValue != 1)
             {
                 continue;
             }

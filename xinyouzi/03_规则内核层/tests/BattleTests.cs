@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 //  战斗系统测试 —— 严格对照 3_战斗系统设计.md 第七节「验收标准」
 //
 //  【v1.2 覆盖的 8 个场景】测试名与设计文档一一对应，可直接对照：
@@ -283,14 +283,19 @@ public sealed class BattleSystemTests
         Assert.True(field.LossRateTenThousand < siege.LossRateTenThousand);
     }
 
-    /// <summary>野战均势：design 3.5 的 0.21 / 0.27。</summary>
+    /// <summary>野战均势：FieldBattleLossFactor v1.3 订正为 5000 后，战损 0.175 / 被歼 0.540。</summary>
+    /// <remarks>
+    /// 旧基准 6000 给出 0.210，把野战攻方自损抬高到与攻城无异的水平，
+    /// 削弱「野战规避城防」的设计意图；v1.3 订正为 5000：
+    /// lossRate = 0.35 × 0.5 × (2 − 2×0.5) = 0.175（3_战斗系统设计.md 3.5）。
+    /// </remarks>
     [Fact]
-    public void Battle_野战均势_战损021()
+    public void Battle_野战均势_战损0175()
     {
         var result = new BattleSystem(Balance)
             .Resolve(1000, 1000, 0, 50, 50, false, false, false);
 
-        Assert.Equal(0.210, result.LossRateTenThousand / (double)TenThousand, 3);
+        Assert.Equal(0.175, result.LossRateTenThousand / (double)TenThousand, 3);
     }
 
     /// <summary>Siege 专长应降低攻城战损。</summary>
@@ -517,13 +522,17 @@ public sealed class DispatchBattleTests
     }
 
     /// <summary>
-    /// 被围困的城池下月不可再发起 Dispatch。
+    /// 被围困的城池下月不可再发起 Dispatch，返回独立的 RejectedTargetSieged。
     /// </summary>
     /// <remarks>
-    /// 【契约缺口】设计文档写 <c>RejectedTargetSieged</c>，
-    /// 但契约 v1.2 的 <see cref="ResolveResultCode"/> 无该成员。
-    /// 本实现返回 <see cref="ResolveResultCode.RejectedTargetOccupied"/>——
-    /// 其契约注释已含「或正在被围」，语义一致。此缺口已上报。
+    /// 【契约 v1.3 正名】设计文档一直写 <c>RejectedTargetSieged</c>，
+    /// 但契约 v1.2 的 <see cref="ResolveResultCode"/> 曾无该成员，
+    /// 当时暂用 <see cref="ResolveResultCode.RejectedTargetOccupied"/> 兼容。
+    /// v1.3 起枚举已有 RejectedTargetSieged = 10：
+    /// 围困是临时状态（等下月），区别于永久性的「已被其他势力占领」（换目标）。
+    /// 【第 3 轮补丁·修复一跟随】围城部队必须属于敌对阵营才构成围困：
+    /// 同阵营的围城部队已豁免（围城者自己要能就地续攻，见 T5）。
+    /// 本例围城方为蜀（势力 2），对玩家（势力 0）仍是敌对阵营。
     /// </remarks>
     [Fact]
     public void Resolve_被围困城池不得再次出兵()
@@ -533,7 +542,7 @@ public sealed class DispatchBattleTests
 
         state.Armies.Add(new Army
         {
-            Id = 5, OwnerFactionId = 0, OfficerId = -1,
+            Id = 5, OwnerFactionId = 2, OfficerId = -1,
             Soldiers = 100, Morale = 50, MoraleMax = 100,
             PositionCityId = 1, TargetCityId = 1, Stance = ArmyStance.Besieging,
         });
@@ -541,7 +550,114 @@ public sealed class DispatchBattleTests
         var result = resolver.Resolve(
             state, Order.CreatePlayerOrder(ActionType.Dispatch, target: 1, amount: 50, secondary: 0));
 
-        Assert.Equal(ResolveResultCode.RejectedTargetOccupied, result.Code);
+        Assert.Equal(ResolveResultCode.RejectedTargetSieged, result.Code);
+    }
+
+    /// <summary>
+    /// 补丁 T5：围城续攻——僵持后同势力次月再攻同一目标，城下围城部队就地再战。
+    /// </summary>
+    /// <remarks>
+    /// 修复一前的症状：underSiege 不分阵营（围城者自己也被拦）+
+    /// FindDispatchableArmy 只认出发城 → 围城部队与目标城双死锁，
+    /// 与僵持事件「下月可再战」直接矛盾。
+    /// 修复后：同阵营围城豁免 + FindDispatchableArmy 第二轮兜底。
+    /// SecondaryTargetId 仍传相邻出发城（语义为补给方向，相邻性校验不变）。
+    /// </remarks>
+    [Fact]
+    public void TestDispatch_围城续攻_城下部队就地再战()
+    {
+        var world = SampleData.CreateWorld();
+        world.Player.IsPersonallyCommanding = true;   // 固定普通 Dispatch 路径
+        world.GetArmy(0)!.OfficerId = 0;              // 张良（势力 0，统帅 70）
+        world.GetArmy(0)!.Morale = 50;
+        world.GetArmy(1)!.PositionCityId = 1;
+        world.GetArmy(1)!.Soldiers = 80;
+
+        var resolver = new DispatchResolver(Balance);
+        var applier = new StateApplier();
+
+        // ---- 第 1 月：150 攻 80 守 → 未决，攻方滞留敌城转为围城 ----
+        var first = resolver.Resolve(
+            world,
+            Order.CreatePlayerOrder(ActionType.Dispatch, target: 1, amount: 150, secondary: 0));
+
+        Assert.True(first.IsSuccess);
+        applier.Apply(world, first.Deltas);
+
+        Assert.Equal(1, world.GetArmy(0)!.PositionCityId);
+        Assert.Equal(ArmyStance.Besieging, world.GetArmy(0)!.Stance);
+
+        // ---- 第 2 月：同势力对同一目标再次 Dispatch（SecondaryTargetId 仍传相邻城）----
+        world.GetArmy(1)!.Soldiers = 80;   // 守军回填，维持「攻未决」战果
+        int beforeSoldiers = world.GetArmy(0)!.Soldiers;
+
+        var second = resolver.Resolve(
+            world,
+            Order.CreatePlayerOrder(
+                ActionType.Dispatch,
+                target: 1,
+                amount: Math.Min(150, beforeSoldiers),
+                secondary: 0));
+
+        Assert.True(second.IsSuccess);   // 不再返回 RejectedTargetSieged
+
+        // 出战的就是城下那支围城部队：兵力再次被扣。
+        Assert.Contains(second.Deltas, d =>
+            d.TargetType == DeltaTarget.Army
+            && d.TargetId == 0
+            && d.Field == DeltaField.ArmySoldiers
+            && d.OldValue == beforeSoldiers
+            && d.NewValue < beforeSoldiers);
+
+        // 「下月可再战」的事件文案现在是真的。
+        Assert.Contains(second.Events, e => e.EventKey == EventKeys.SiegeStalemate);
+
+        applier.Apply(world, second.Deltas);
+        Assert.Equal(ArmyStance.Besieging, world.GetArmy(0)!.Stance);   // 围城继续
+        Assert.Equal(1, world.GetCity(1)!.OwnerFactionId);              // 城仍未易主
+    }
+
+    /// <summary>
+    /// 补丁 T6：第三方仍被拦——玩家围城未决后，第三方势力对该城下 Dispatch 仍被拒绝。
+    /// </summary>
+    /// <remarks>
+    /// 与 T5 相对：同阵营豁免只放行围城者自己，敌对阵营一律照旧拦下。
+    /// 蜀（势力 2）的江陵（城 4）与目标长安（城 1）相邻。
+    /// </remarks>
+    [Fact]
+    public void TestDispatch_第三方势力仍被围困拦截()
+    {
+        var world = SampleData.CreateWorld();
+        world.Player.IsPersonallyCommanding = true;
+        world.GetArmy(0)!.OfficerId = 0;
+        world.GetArmy(1)!.PositionCityId = 1;
+        world.GetArmy(1)!.Soldiers = 80;
+
+        var resolver = new DispatchResolver(Balance);
+
+        // 玩家（势力 0）攻城未决 → 围城成立。
+        var first = resolver.Resolve(
+            world,
+            Order.CreatePlayerOrder(ActionType.Dispatch, target: 1, amount: 150, secondary: 0));
+
+        Assert.True(first.IsSuccess);
+        new StateApplier().Apply(world, first.Deltas);
+        Assert.Equal(ArmyStance.Besieging, world.GetArmy(0)!.Stance);
+
+        // 第三方（蜀，势力 2）从相邻的江陵对该城出兵 → 仍被 RejectedTargetSieged 拦截。
+        world.Armies.Add(new Army
+        {
+            Id = 9, OwnerFactionId = 2, OfficerId = -1,
+            Soldiers = 500, Morale = 80, MoraleMax = 100,
+            PositionCityId = 4, TargetCityId = -1, Stance = ArmyStance.Idle,
+        });
+
+        var third = resolver.Resolve(
+            world,
+            Order.CreateAiOrder(ActionType.Dispatch, factionId: 2, target: 1, amount: 100, secondary: 4));
+
+        Assert.False(third.IsSuccess);
+        Assert.Equal(ResolveResultCode.RejectedTargetSieged, third.Code);
     }
 
     /// <summary>验收：玩家亲征时不叠加 Officer 加成。</summary>

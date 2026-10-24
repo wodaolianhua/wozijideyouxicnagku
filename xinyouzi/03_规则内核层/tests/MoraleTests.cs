@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 //  士气系统测试 —— 严格对照 4_数值框架.md 第 5.2 / 5.4 节
 //
 //  【11 个必测场景】测试名与任务书逐条对应：
@@ -6,9 +6,17 @@
 //   2 士气 45 战损 ×1.5   6 击退后减 12
 //   3 士气 20 战损 ×2.5   7 守方无论胜负都减 4
 //   4 士气 5  战损 ×4.0   8 归零触发哗变一次且仅一次
-//                         9 连续 6 月无战开始腐化
+//                         9 连续 4 月无战开始腐化（v1.3 阈值 4）
 //                         10 参战后 MonthsWithoutBattle 归零
 //                         11 Clone 保留两个新字段
+//
+//  【第 2 轮补丁 · 契约 v1.4 参战信号】恢复只在未参战月生效，四个新场景：
+//   TestMorale_参战月不恢复 / 连续未参战4月触发腐化 /
+//   每2月一战不会恒定在60 / 恢复与腐化不叠加。
+//
+//  【第 3 轮补丁】月初标记翻转（修复二）/ 守军参战信号（修复三），
+//   新增 TestMorale_月度标记月初翻转 / TestMorale_守军参战不回血不腐化；
+//   T1-B 的手动复位 workaround 已改为真实续攻路径（修复一）。
 //
 //  【关键口径：低士气倍率必须能把战损推过击退阈值】
 // 这条是士气系统「有没有存在意义」的判据。早期档位 ×1.2/1.5/2.0 在实测中
@@ -281,16 +289,29 @@ public sealed class MoraleSystemTests
         Assert.Equal(EventKeys.Mutiny, evt!.EventKey);
     }
 
-    /// <summary>已哗变过的部队当月不再触发哗变。</summary>
+    /// <summary>
+    /// 【第 3 轮补丁改锁】哗变标记月初翻转后，士气仍崩溃的部队可再次哗变。
+    /// </summary>
+    /// <remarks>
+    /// 旧规则「HasMutiniedThisMonth 从不清零 → 哗变一生一次」是月度标记无翻转的
+    /// 老 bug（第 2 轮汇报遗留第 3 条）。修复后标记在月度结算开头翻转（先清后判）：
+    /// 上月哗变、本月士气仍 ≤ 0 → 再次解散兵力，是否再哗变只看当月士气。
+    /// 本例未参战：恢复分支把结算后士气拉到 3，但判定取结算前后较小值 0 → 仍触发。
+    /// </remarks>
     [Fact]
-    public void Morale_已标记哗变的部队不再重复扣兵()
+    public void Morale_哗变标记翻转后士气仍崩溃可再次哗变()
     {
         var state = WorldWith(Army(morale: 0, soldiers: 1000, hasMutinied: true));
 
         var deltas = System.ResolveMonthlyMorale(state);
 
-        Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmySoldiers);
-        Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmyHasMutiniedThisMonth);
+        // 月初翻转照常产出：旧标记 1→0。
+        Assert.Contains(deltas, d =>
+            d.Field == DeltaField.ArmyHasMutiniedThisMonth
+            && d.OldValue == 1 && d.NewValue == 0);
+
+        // 先清后判：士气仍崩溃 → 再次哗变扣兵（一生一次 bug 消除）。
+        Assert.Contains(deltas, d => d.Field == DeltaField.ArmySoldiers);
     }
 
     // ========================================================================
@@ -298,65 +319,60 @@ public sealed class MoraleSystemTests
     // ========================================================================
 
     /// <summary>
-    /// 场景 9：连续无战达到阈值后开始腐化，阈值当月即生效。
+    /// 场景 9：连续无战达到阈值后开始腐化，阈值当月即生效（契约 v1.3 基准：阈值 4 / 腐化 6）。
     /// </summary>
     /// <remarks>
-    /// 阈值 6 的语义是「连续 6 个月没打仗就开始腐化」，
-    /// 所以第 6 个无战月当月就该扣，而不是等第 7 月。
+    /// 阈值 4 的语义是「连续 4 个月没打仗就开始腐化」，
+    /// 用结算前的值 +1 后比较，所以第 4 个无战月当月就扣，而不是等第 5 月。
     /// </remarks>
     [Fact]
-    public void Morale_连续6月无战开始腐化()
+    public void Morale_连续4月无战开始腐化()
     {
         var system = System;
-        Assert.Equal(6, Balance.MoraleDecayNoBattleThreshold);
-        Assert.Equal(2, Balance.MoraleDecayNoBattlePerMonth);
+        Assert.Equal(4, Balance.MoraleDecayNoBattleThreshold);
+        Assert.Equal(6, Balance.MoraleDecayNoBattlePerMonth);
         Assert.Equal(3, Balance.MoraleDecayPerMonth);
 
-        // ---- 前5 个月：只自然恢复，不腐化 ----
+        // ---- 前 3 个月：未达阈值，只自然恢复 ----
         var state = WorldWith(Army(morale: 50, monthsWithoutBattle: 0));
 
-        for (int month = 1; month <= 5; month++)
+        for (int month = 1; month <= 3; month++)
         {
             Apply(state, system.ResolveMonthlyMorale(state));
             Assert.Equal(50 + 3 * month, state.GetArmy(0)!.Morale);
+            Assert.Equal(month, state.GetArmy(0)!.MonthsWithoutBattle);
         }
 
-        Assert.Equal(5, state.GetArmy(0)!.MonthsWithoutBattle);
-
-        // ---- 第 6 个月：达到阈值，净变化 = +3 −2 = +1 ----
+        // ---- 第 4 个月：m = 3+1 = 4 达阈值，当月只扣 6（不叠加 +3）----
+        int before = state.GetArmy(0)!.Morale;
         Apply(state, system.ResolveMonthlyMorale(state));
-        Assert.Equal(6, state.GetArmy(0)!.MonthsWithoutBattle);
-        Assert.Equal(50 + 3 * 5 + 1, state.GetArmy(0)!.Morale);
+        Assert.Equal(4, state.GetArmy(0)!.MonthsWithoutBattle);
+        Assert.Equal(before - 6, state.GetArmy(0)!.Morale);
     }
 
     /// <summary>
-    /// 长期无战的士气演化：净变化恒为 +1（恢复 3 − 腐化 2），士气单调回升。
+    /// 长期无战的士气演化（契约 v1.3 定稿）：前 3 月恢复 +3，第 4 月起每月只扣 6，
+    /// 士气单调下滑——和平腐化构成真实压力。
     /// </summary>
     /// <remarks>
-    /// 【本测试同时是一条待确认项】设计 4_数值框架 5.2 给的是
-    /// 「自然恢复 +3/ 月」与「长期无战 −2 / 月」，两者叠加后净变化为 <b>+1</b>，
-    /// 意味着和平腐化在数值上永远拉不垮一支部队——所谓「双刃剑」目前没有刃。
-    /// 本测试锁定的是<b>当前实现的真实行为</b>（不做美化），
-    /// 若设计侧希望腐化真正构成压力，需调大<code>MoraleDecayNoBattlePerMonth</code>
-    /// 至大于 <code>MoraleDecayPerMonth</code>，届时本测试会失败并提示同步更新。
-    /// 已作为疑问上报。
+    /// 上一轮曾把「净变化 = +3 −2 = +1、腐化拉不垮部队」作为疑问上报；
+    /// 契约 v1.3 已按实算改定 +3 / −6 / 阈值 4，本测试随之改锁新行为：
+    /// 12 个月纯和平 60 → 15，任何一个月不触发哗变、不触零。
     /// </remarks>
     [Fact]
-    public void Morale_长期无战净变化为恢复减腐化()
+    public void Morale_长期无战腐化构成真实压力()
     {
-        var state = WorldWith(Army(morale: 20, monthsWithoutBattle: 0));
+        var state = WorldWith(Army(morale: 60, monthsWithoutBattle: 0));
         var system = System;
 
         int previous = state.GetArmy(0)!.Morale;
 
-        for (int month = 1; month <= 24; month++)
+        for (int month = 1; month <= 12; month++)
         {
             Apply(state, system.ResolveMonthlyMorale(state));
 
             int current = state.GetArmy(0)!.Morale;
-            int expected = month < 6
-                ? previous + 3
-                : Math.Min(100, previous + 1);
+            int expected = month <= 3 ? previous + 3 : previous - 6;
 
             Assert.Equal(expected, current);
             Assert.InRange(current, 0, 100);
@@ -364,8 +380,10 @@ public sealed class MoraleSystemTests
             previous = current;
         }
 
-        // 20 + 3×5（第1-5 月）+ 1×19（第 6-24 月）= 54。
-        Assert.Equal(54, state.GetArmy(0)!.Morale);
+        // 60 + 3×3（第 1-3 月）− 6×9（第 4-12 月）= 15。
+        Assert.Equal(15, state.GetArmy(0)!.Morale);
+        Assert.False(state.GetArmy(0)!.HasMutiniedThisMonth);
+        Assert.Equal(1000, state.GetArmy(0)!.Soldiers);
     }
 
     /// <summary>
@@ -455,6 +473,361 @@ public sealed class MoraleSystemTests
         Assert.Equal(original.Soldiers, copy.Soldiers);
         Assert.Equal(original.Morale, copy.Morale);
         Assert.Equal(original.MoraleMax, copy.MoraleMax);
+    }
+
+    // ========================================================================
+    //  第 2 轮补丁 · 第 1 节：恢复只在未参战月生效（契约 v1.4 参战信号）
+    // ========================================================================
+
+    /// <summary>
+    /// 补丁 T1：参战月不恢复——参战周期的月度结算净变化为 0。
+    /// </summary>
+    /// <remarks>
+    /// A 段直接结算：连续 3 个参战周期（模拟第 7 步战斗后的标记/计数状态），
+    /// 士气 50 纹丝不动、标记消费即清、计数保持 0。
+    /// B 段端到端：经 DispatchResolver 攻城未决（僵持 −3）+ 月度结算 ×3 = 41，
+    /// 锁定「无脑连续攻城每月净掉 3 点」的补丁目标。
+    /// </remarks>
+    [Fact]
+    public void TestMorale_参战月不恢复()
+    {
+        var system = System;
+
+        // ---- A 段：直接结算 ----
+        var state = WorldWith(Army(morale: 50));
+        for (int month = 1; month <= 3; month++)
+        {
+            // 模拟本月第 7 步战斗已发生：计数清零、参战标记置位。
+            var army = state.GetArmy(0)!;
+            army.MonthsWithoutBattle = 0;
+            army.HasEngagedThisMonth = true;
+
+            var deltas = system.ResolveMonthlyMorale(state);
+            Apply(state, deltas);
+
+            Assert.Equal(50, state.GetArmy(0)!.Morale);
+            Assert.Equal(0, state.GetArmy(0)!.MonthsWithoutBattle);
+            Assert.False(state.GetArmy(0)!.HasEngagedThisMonth);
+            Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmyMorale);
+        }
+
+        // ---- B 段：端到端（DispatchResolver 僵持 + 月度结算）----
+        var world = SampleData.CreateWorld();
+        world.Player.IsPersonallyCommanding = true;  // 固定普通 Dispatch 路径，避免首击被判亲征挬走统帅
+        world.GetArmy(0)!.OfficerId = 0;             // 张良（势力 0，统帅 70）
+        world.GetArmy(0)!.Morale = 50;
+        world.GetArmy(0)!.Soldiers = 3000;
+
+        var resolver = new DispatchResolver(Balance);
+
+        for (int month = 1; month <= 3; month++)
+        {
+            // 【第 3 轮补丁·修复一后改为真实续攻路径】僵持后攻方滞留敌城、姿态 Besieging：
+            // 同阵营围城豁免 + FindDispatchableArmy 第二轮兑底让城下部队就地再战，
+            // 不再需要上一版手动复位姿态的 workaround。
+            // SecondaryTargetId 仍传相邻出发城（语义为补给方向）；
+            // 出兵量上限 150，次月起把城下剩余兵力全部投入。
+            var defender = world.GetArmy(1)!;
+            defender.PositionCityId = 1;
+            defender.Soldiers = 80;   // 守军每月回填，维持「攻未决」的僵持战果
+
+            var besieger = world.GetArmy(0)!;
+
+            var result = resolver.Resolve(
+                world,
+                Order.CreatePlayerOrder(
+                    ActionType.Dispatch,
+                    target: 1,
+                    amount: Math.Min(150, besieger.Soldiers),
+                    secondary: 0));
+
+            Assert.True(result.IsSuccess);
+            var battleMorale = result.Deltas.Single(
+                d => d.TargetId == 0 && d.Field == DeltaField.ArmyMorale);
+            Assert.Equal(-Balance.MoraleLossOnStalemate, battleMorale.NewValue - battleMorale.OldValue);
+
+            Apply(world, result.Deltas);
+            Assert.Equal(50 - 3 * month, world.GetArmy(0)!.Morale);
+
+            // 月度结算：参战周期 → 不恢复
+            Apply(world, system.ResolveMonthlyMorale(world));
+            Assert.Equal(50 - 3 * month, world.GetArmy(0)!.Morale);
+            Assert.Equal(0, world.GetArmy(0)!.MonthsWithoutBattle);
+            Assert.False(world.GetArmy(0)!.HasEngagedThisMonth);
+        }
+
+        Assert.Equal(41, world.GetArmy(0)!.Morale);
+    }
+
+    /// <summary>
+    /// 补丁 T2：连续未参战 4 月触发腐化——前 3 月各 +3，第 4 月只 −6，末值 63。
+    /// </summary>
+    /// <remarks>
+    /// 【勘误】补丁提示词写「60+3+3+3−6=57」为算术错误，60+9−6=63（00 号裁决第三节）。
+    /// </remarks>
+    [Fact]
+    public void TestMorale_连续未参战4月触发腐化()
+    {
+        var state = WorldWith(Army(morale: 60, monthsWithoutBattle: 0));
+        var system = System;
+
+        int[] expected = { 63, 66, 69, 63 };
+
+        for (int month = 1; month <= 4; month++)
+        {
+            var deltas = system.ResolveMonthlyMorale(state);
+            Apply(state, deltas);
+
+            Assert.Equal(expected[month - 1], state.GetArmy(0)!.Morale);
+            Assert.Equal(month, state.GetArmy(0)!.MonthsWithoutBattle);
+        }
+
+        // 第 4 月必须只扣 6（净 −6），不是叠加出 −3。
+        Assert.Equal(63, state.GetArmy(0)!.Morale);
+    }
+
+    /// <summary>
+    /// 补丁 T3：每 2 月一战不会恒定在 60（逐月事实序列）。
+    /// </summary>
+    /// <remarks>
+    /// 【与补丁提示词的差异，详见汇报】原断言「12 月末 &lt; 57」在 v1.4 规则下数学上不可能：
+    /// 每次战斗都把计数清零，休整月 m 永远 = 1 &lt; 4，只会恢复不会腐化，
+    /// 因此交替场景士气单调上升（60 → 78）。00 号裁决改为锁定逐月事实：
+    /// 参战后结算月净变化 0、休整月结算 +3、计数器永不达到 4（永不腐化）。
+    /// </remarks>
+    [Fact]
+    public void TestMorale_每2月一战不会恒定在60()
+    {
+        var state = WorldWith(Army(morale: 60, monthsWithoutBattle: 0));
+        var system = System;
+
+        int morale = state.GetArmy(0)!.Morale;
+
+        for (int month = 1; month <= 12; month++)
+        {
+            bool battleMonth = month % 2 == 1;   // 战、休、战、休……
+            var army = state.GetArmy(0)!;
+
+            if (battleMonth)
+            {
+                // 模拟上一结算周期结束时的战斗后果：计数清零、参战标记置位。
+                army.MonthsWithoutBattle = 0;
+                army.HasEngagedThisMonth = true;
+            }
+
+            int before = army.Morale;
+            var deltas = system.ResolveMonthlyMorale(state);
+            Apply(state, deltas);
+
+            int change = state.GetArmy(0)!.Morale - before;
+            if (battleMonth)
+            {
+                Assert.Equal(0, change);                              // 参战后结算月净变化 0
+                Assert.False(state.GetArmy(0)!.HasEngagedThisMonth);  // 标记已消费
+            }
+            else
+            {
+                Assert.Equal(Balance.MoraleDecayPerMonth, change);    // 休整月结算 +3
+                Assert.Equal(1, state.GetArmy(0)!.MonthsWithoutBattle);
+            }
+
+            Assert.True(
+                state.GetArmy(0)!.MonthsWithoutBattle < Balance.MoraleDecayNoBattleThreshold,
+                "交替节奏下计数器永不达到阈值，永不腐化");
+
+            morale = state.GetArmy(0)!.Morale;
+        }
+
+        // 12 月 = 6 个参战结算（0）+ 6 个休整月（+3），末值 78。
+        Assert.Equal(60 + 3 * 6, morale);
+    }
+
+    /// <summary>
+    /// 补丁 T4：恢复与腐化不叠加——任何一次结算的士气变化只能是 0 / +3 / −6 之一。
+    /// </summary>
+    /// <remarks>
+    /// 「既 +3 又 −6」的叠加在同一次结算里只可能表现为净 −3（+3−6），
+    /// 那是旧实现叠加 bug 的特征签名，必须绝迹。
+    /// 扫描三类场景：跨阈值的 12 个月纯和平、参战周期结算、战/休交替。
+    /// </remarks>
+    [Fact]
+    public void TestMorale_恢复与腐化不叠加()
+    {
+        var system = System;
+        var allChanges = new List<int>();
+
+        // 场景一：连续 12 个无战月（跨越阈值，叠加 bug 会在第 4 月暴露为净 −3）。
+        var idle = WorldWith(Army(morale: 60, monthsWithoutBattle: 0));
+        for (int month = 1; month <= 12; month++)
+        {
+            var deltas = system.ResolveMonthlyMorale(idle);
+            allChanges.AddRange(MoraleChanges(deltas));
+            Apply(idle, deltas);
+        }
+
+        Assert.Equal(15, idle.GetArmy(0)!.Morale);   // 60 + 9 − 54
+
+        // 场景二：参战周期结算（净 0，不产出士气 delta）。
+        var engaged = WorldWith(Army(morale: 50));
+        engaged.GetArmy(0)!.HasEngagedThisMonth = true;
+        var engagedDeltas = system.ResolveMonthlyMorale(engaged);
+        allChanges.AddRange(MoraleChanges(engagedDeltas));
+        Assert.DoesNotContain(engagedDeltas, d => d.Field == DeltaField.ArmyMorale);
+
+        // 场景三：战/休交替 12 个月。
+        var mixed = WorldWith(Army(morale: 60, monthsWithoutBattle: 0));
+        for (int month = 1; month <= 12; month++)
+        {
+            if (month % 2 == 1)
+            {
+                mixed.GetArmy(0)!.MonthsWithoutBattle = 0;
+                mixed.GetArmy(0)!.HasEngagedThisMonth = true;
+            }
+
+            var deltas = system.ResolveMonthlyMorale(mixed);
+            allChanges.AddRange(MoraleChanges(deltas));
+            Apply(mixed, deltas);
+        }
+
+        int stack = Balance.MoraleDecayPerMonth - Balance.MoraleDecayNoBattlePerMonth; // +3 + (−6) = −3
+
+        Assert.All(allChanges, c => Assert.True(
+            c == 0 || c == Balance.MoraleDecayPerMonth || c == -Balance.MoraleDecayNoBattlePerMonth,
+            $"出现非法士气变化 {c}（只允许 0 / +3 / −6）"));
+        Assert.DoesNotContain(stack, allChanges);
+    }
+
+    /// <summary>提取一次结算中全部部队的士气变化量（New − Old）。</summary>
+    private static IEnumerable<int> MoraleChanges(List<StateDelta> deltas)
+        => deltas.Where(d => d.Field == DeltaField.ArmyMorale)
+                 .Select(d => d.NewValue - d.OldValue);
+
+    // ========================================================================
+    //  第 3 轮补丁：月初标记翻转（修复二）与守军参战信号（修复三）
+    // ========================================================================
+
+    /// <summary>
+    /// 补丁 T7：月度标记月初翻转——休整 / 哗变标记在结算开头归零且产出对应 delta；
+    /// 「先清后判」：上月哗变、本月士气仍 ≤ 0 的部队可再次哗变。
+    /// </summary>
+    /// <remarks>
+    /// 老 bug：HasRestedThisMonth 只在出兵时清零（纯休整部队一生只能休整一次）、
+    /// HasMutiniedThisMonth 从不清零（哗变一生一次）。修复二在月度结算开头统一翻转。
+    /// </remarks>
+    [Fact]
+    public void TestMorale_月度标记月初翻转()
+    {
+        var system = System;
+
+        // ---- 段一：两标记同时为 true，结算一次全部翻转 ----
+        var state = WorldWith(Army(morale: 50, soldiers: 1000));
+        state.GetArmy(0)!.HasRestedThisMonth = true;
+        state.GetArmy(0)!.HasMutiniedThisMonth = true;
+
+        var deltas = system.ResolveMonthlyMorale(state);
+
+        var restedFlip = deltas.Single(d => d.Field == DeltaField.ArmyHasRested);
+        Assert.Equal(1, restedFlip.OldValue);
+        Assert.Equal(0, restedFlip.NewValue);
+
+        var mutiniedFlip = deltas.Single(d => d.Field == DeltaField.ArmyHasMutiniedThisMonth);
+        Assert.Equal(1, mutiniedFlip.OldValue);
+        Assert.Equal(0, mutiniedFlip.NewValue);
+
+        Apply(state, deltas);
+        Assert.False(state.GetArmy(0)!.HasRestedThisMonth);
+        Assert.False(state.GetArmy(0)!.HasMutiniedThisMonth);
+
+        // 翻转不影响士气：未参战走恢复分支（50 → 53），士气健康不触发哗变。
+        Assert.Equal(53, state.GetArmy(0)!.Morale);
+
+        // ---- 段二：先清后判——上月已哗变、本月参战且士气 ≤ 0 → 可再次哗变 ----
+        var relapsed = WorldWith(Army(morale: 0, soldiers: 1000));
+        relapsed.GetArmy(0)!.HasMutiniedThisMonth = true;   // 上月哗变的遗留标记
+        relapsed.GetArmy(0)!.HasEngagedThisMonth = true;    // 本月参战：参战分支不恢复士气
+
+        var again = system.ResolveMonthlyMorale(relapsed);
+
+        // 月初翻转照常产出（1→0）。
+        Assert.Contains(again, d =>
+            d.Field == DeltaField.ArmyHasMutiniedThisMonth
+            && d.OldValue == 1 && d.NewValue == 0);
+
+        // 哗变兵力 delta 再次产出：一生一次 bug 消除（1000 → 700）。
+        var rout = again.Single(d => d.Field == DeltaField.ArmySoldiers);
+        Assert.Equal(1000, rout.OldValue);
+        Assert.Equal(700, rout.NewValue);
+
+        // 翻转之后哗变标记重新置位（0→1），本月的「防重复」语义保持。
+        Assert.Contains(again, d =>
+            d.Field == DeltaField.ArmyHasMutiniedThisMonth
+            && d.OldValue == 0 && d.NewValue == 1);
+    }
+
+    /// <summary>
+    /// 补丁 T8：守军参战不回血——被围城的守军走参战分支：
+    /// 士气不恢复（不 +3）、不腐化（无 −6）、计数保持 0、标记消费清零。
+    /// </summary>
+    /// <remarks>
+    /// 修复三前的症状：守军参战不置 HasEngagedThisMonth、不清零计数——
+    /// 被围城的头 3 个月守军反而每月 +3 回血，第 4 月起又在打仗的同时被腐化 −6。
+    /// 修复三让守方与攻方对称：参战信号由 DispatchResolver 在分摊战损的同一循环补发。
+    /// </remarks>
+    [Fact]
+    public void TestMorale_守军参战不回血不腐化()
+    {
+        var world = SampleData.CreateWorld();
+        world.Player.IsPersonallyCommanding = true;   // 固定普通 Dispatch 路径
+        world.GetArmy(0)!.OfficerId = 0;              // 张良（势力 0，统帅 70）
+        world.GetArmy(0)!.Morale = 50;
+        world.GetArmy(1)!.PositionCityId = 1;
+        world.GetArmy(1)!.Soldiers = 80;
+
+        var resolver = new DispatchResolver(Balance);
+        var system = System;
+
+        for (int month = 1; month <= 4; month++)
+        {
+            world.GetArmy(1)!.Soldiers = 80;          // 守军每月回填，维持僵持战果
+
+            var result = resolver.Resolve(
+                world,
+                Order.CreatePlayerOrder(
+                    ActionType.Dispatch,
+                    target: 1,
+                    amount: Math.Min(150, world.GetArmy(0)!.Soldiers),
+                    secondary: 0));
+
+            Assert.True(result.IsSuccess);
+
+            // 战斗当月：守军参战信号已置位、计数已清零（与攻方同组 delta）。
+            var engaged = result.Deltas.Single(d =>
+                d.TargetId == 1 && d.Field == DeltaField.ArmyHasEngagedThisMonth);
+            Assert.Equal(1, engaged.NewValue);
+
+            Assert.Contains(result.Deltas, d =>
+                d.TargetId == 1
+                && d.Field == DeltaField.ArmyMonthsWithoutBattle
+                && d.NewValue == 0);
+
+            Apply(world, result.Deltas);
+
+            // 次月结算：守军走参战分支——士气不变（不 +3 也不 −6），标记消费清零。
+            int defenderMorale = world.GetArmy(1)!.Morale;
+            Apply(world, system.ResolveMonthlyMorale(world));
+
+            Assert.Equal(defenderMorale, world.GetArmy(1)!.Morale);
+            Assert.False(world.GetArmy(1)!.HasEngagedThisMonth);
+            Assert.Equal(0, world.GetArmy(1)!.MonthsWithoutBattle);
+            Assert.Equal(ArmyStance.Besieging, world.GetArmy(0)!.Stance);   // 连续围城中
+            Assert.Equal(1, world.GetCity(1)!.OwnerFactionId);              // 城未易主
+        }
+
+        // 连续被围 4 个月：守军士气只被战斗 −4/月，从不 +3 回血、从不 −6 腐化。
+        Assert.Equal(75 - Balance.MoraleLossOnDefend * 4, world.GetArmy(1)!.Morale);
+        Assert.Equal(0, world.GetArmy(1)!.MonthsWithoutBattle);
+        Assert.False(world.GetArmy(1)!.HasMutiniedThisMonth);
+        Assert.True(world.GetArmy(1)!.Soldiers > 0);
     }
 
     // ========================================================================

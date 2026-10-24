@@ -15,11 +15,11 @@
   "moraleDecayPerMonth": 3,
   "_c_moraleDecayPerMonth": "部队士气每月自然衰减（绝对点数，非比率）。契约基准 3。与 moraleDecayNoBattlePerMonth 是两笔独立叠加的扣减。",
 
-  "moraleDecayNoBattleThreshold": 6,
-  "_c_moraleDecayNoBattleThreshold": "触发和平腐化所需的连续未参战月数（绝对月数）。契约基准 6。超过后每月额外扣士气，逼玩家在休整与追击之间做选择。",
+  "moraleDecayNoBattleThreshold": 4,
+  "_c_moraleDecayNoBattleThreshold": "触发和平腐化所需的连续未参战月数（绝对月数）。契约基准 4。超过后每月额外扣士气，逼玩家在休整与追击之间做选择。",
 
-  "moraleDecayNoBattlePerMonth": 2,
-  "_c_moraleDecayNoBattlePerMonth": "连续无战超过阈值后，每月的额外士气扣减（绝对点数）。契约基准 2。",
+  "moraleDecayNoBattlePerMonth": 6,
+  "_c_moraleDecayNoBattlePerMonth": "连续无战超过阈值后，每月的额外士气扣减（绝对点数）。契约基准 6。",
 
   "moraleGainOnCapture": 10,
   "_c_moraleGainOnCapture": "攻城攻陷后攻方士气增量（绝对点数）。契约基准 10。",
@@ -85,8 +85,8 @@
   "siegeThresholdLoss": 7000,
   "_c_siegeThresholdLoss": "攻陷/击退阈值，万分比。7000 = 70%。lossRate ≥ 此值判为击退，且必须先判击退再判攻陷。",
 
-  "fieldBattleLossFactor": 6000,
-  "_c_fieldBattleLossFactor": "野战战损乘数，万分比。6000 = 60%。野战无城墙消耗，lossRate = baseLoss × 本值/10000 × (2 - 2×commanderRatio)。",
+  "fieldBattleLossFactor": 5000,
+  "_c_fieldBattleLossFactor": "野战战损乘数，万分比。5000 = 50%。野战无城墙消耗，lossRate = baseLoss × 本值/10000 × (2 - 2×commanderRatio)。与3_战斗系统设计.md 3.5 节一致。",
 
   "stalemateLossRate": 0,
   "_c_stalemateLossRate": "【v1.2 已废弃】未决状态改为按 lossRate / killRate 正常结算，不再额外扣一次（原先的双方各损 10% 是重复计算）。保留字段仅为兼容旧配置，执行者应读但不得参与计算。置 0 表示已确认失效。",
@@ -100,7 +100,7 @@
   "extendedBalance": {
     "stabilityNaturalRecovery": 5,
     "moraleNaturalRecovery": 3,
-    "moraleDecayWhenPeace": 2,
+    "moraleDecayWhenPeace": 6,
     "rewardCostSilver": 100,
     "rewardLoyaltyGain": 8,
     "expectedPlayerCityCount": 2,

@@ -54,13 +54,19 @@ namespace StrategyGame.Core.Systems;
     }
 
     /// <summary>
-    /// 第 2 步：经济结算。粮 = 人口 × 系数 × 人才修正。
+    /// 第 2 步：经济结算。粮 = 逐城（人口 × 系数 × 屯田等级 × 人才加成）求和。
     /// </summary>
     /// <param name="state">世界状态。只读。</param>
     /// <returns>状态增量列表。</returns>
     /// <remarks>
-    /// 【公式】<c>grain = 人口 × GrainPerPopPerMonth / 10000</c>，再乘人才修正。
-    /// 3000 人口、系数 800 → 240 粮/月。
+    /// 【公式（第 4 轮裁决）】每城月粮产 =
+    /// <c>人口 × GrainPerPopPerMonth/10000 × (10000 + FarmLevel×1500)/10000
+    /// × (10000 + 城市人才加成)/10000</c>，势力月粮产 = 所辖各城逐城向下取整后求和。
+    /// 3000 人口、系数 800、空岗、FarmLevel 0 → 240 粮/月。
+    ///
+    /// 【城市人才加成】只认已生效在岗的 <c>FarmOverseer</c> / <c>CityGovernor</c>
+    /// （生效窗口见 <see cref="BalanceConfig.PostTakeEffectMonths"/>），
+    /// 其余岗位贡献 0；取才与查表统一走 <c>PostEffects</c>。
     ///
     /// 【重要设计转向】<b>粮不是真正的瓶颈，兵源才是。</b>
     /// 3000 人口城每月产粮 240，可养 1.2 万兵（240 ÷ 0.02）——相对宽松；
@@ -76,25 +82,44 @@ namespace StrategyGame.Core.Systems;
 
         foreach (var faction in state.Factions)
         {
-            int totalPopulation = state.GetTotalPopulation(faction.Id);
-            if (totalPopulation <= 0)
+            long factionTotal = 0;
+            bool hasProducingCity = false;
+
+            foreach (var city in state.Cities)
+            {
+                if (city.OwnerFactionId != faction.Id)
+                {
+                    continue;
+                }
+
+                // 城池人口 ≤ 0 的城跳过（与现有空势力跳过风格一致）。
+                if (city.Population <= 0)
+                {
+                    continue;
+                }
+
+                // 全部整数运算，杜绝浮点误差，保证逐字段可复现。
+                // 顺序：基础粮 → 屯田等级 → 人才加成，每一步整除截断，全程 long。
+                long grain = (long)city.Population * _config.GrainPerPopPerMonth / RatioBase;
+
+                long farmFactor = RatioBase
+                    + (long)city.FarmLevel * PlaceholderNumbers.FarmLevelBonusPerMille;
+                grain = grain * farmFactor / RatioBase;
+
+                long talentBonus = GetCityTalentBonus(state, city);
+                grain = grain * (RatioBase + talentBonus) / RatioBase;
+
+                factionTotal += grain;
+                hasProducingCity = true;
+            }
+
+            // 势力无任何产粮城时不产出 FactionGrain delta。
+            if (!hasProducingCity || factionTotal <= 0)
             {
                 continue;
             }
 
-            // 全部整数运算，杜绝浮点误差，保证逐字段可复现。
-            int grain = (int)((long)totalPopulation * _config.GrainPerPopPerMonth / RatioBase);
-
-            int modifier = CalculateTalentModifier(state, faction.Id);
-
-            // 人才修正以「百分点」表达，按万分比缩放。
-            long adjusted = (long)grain * (RatioBase + modifier) / RatioBase;
-
-            int finalGrain = (int)Math.Min(adjusted, int.MaxValue);
-            if (finalGrain <= 0)
-            {
-                continue;
-            }
+            int finalGrain = (int)Math.Min(factionTotal, int.MaxValue);
 
             deltas.Add(new StateDelta
             {
@@ -107,6 +132,33 @@ namespace StrategyGame.Core.Systems;
         }
 
         return deltas;
+    }
+
+    /// <summary>
+    /// 计算单城的人才加成（万分比）。
+    /// </summary>
+    /// <param name="state">世界状态。只读。</param>
+    /// <param name="city">目标城池。只读。</param>
+    /// <returns>万分比加成。仅已生效的粮产贡献岗位（屯田使/城守）计入，否则 0。</returns>
+    /// <remarks>
+    /// 岗位白名单见第 2 节细则 1：只有 <c>FarmOverseer</c> 与 <c>CityGovernor</c>
+    /// 对粮产有贡献，其余岗位（军师佐政/将军/斥候）贡献 0。取才与查表委托
+    /// <c>PostEffects</c>。
+    /// </remarks>
+    private int GetCityTalentBonus(WorldState state, City city)
+    {
+        var officer = PostEffects.GetEffectiveCityOfficer(state, city, _config);
+        if (officer == null)
+        {
+            return 0;
+        }
+
+        return officer.Post switch
+        {
+            PostType.FarmOverseer => PostEffects.GetBonus(officer, PostType.FarmOverseer, _config),
+            PostType.CityGovernor => PostEffects.GetBonus(officer, PostType.CityGovernor, _config),
+            _ => 0,
+        };
     }
 
     /// <summary>
@@ -390,28 +442,5 @@ namespace StrategyGame.Core.Systems;
         }
 
         return deltas;
-    }
-
-    /// <summary>
-    /// 计算势力的人才修正百分比。
-    /// </summary>
-    /// <param name="state">世界状态。只读。</param>
-    /// <param name="factionId">势力 Id。</param>
-    /// <returns>修正百分点数。</returns>
-    /// <remarks>
-    /// TODO(设计): 待人事制度定稿后替换。当前按在岗人才数量线性给修正。
-    /// </remarks>
-    private static int CalculateTalentModifier(WorldState state, int factionId)
-    {
-        int postedCount = 0;
-        foreach (var officer in state.GetOfficersOfFaction(factionId))
-        {
-            if (officer.Post != PostType.None)
-            {
-                postedCount++;
-            }
-        }
-
-        return postedCount * PlaceholderNumbers.GovernanceBonusPerPostedOfficer;
     }
 }

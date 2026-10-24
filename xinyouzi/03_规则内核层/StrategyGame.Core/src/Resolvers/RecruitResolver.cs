@@ -79,7 +79,7 @@ public sealed class RecruitResolver : ResolverBase
             state,
             order,
             factionId,
-            CalculateSilverCost(state, factionId, order.Amount),
+            CalculateSilverCost(order.Amount),
             CalculateGrainCost(order.Amount));
     }
 
@@ -104,7 +104,7 @@ public sealed class RecruitResolver : ResolverBase
         int factionId = state.ResolveActorFactionId(order);
         var faction = state.GetFaction(factionId)!;
 
-        int silverCost = CalculateSilverCost(state, factionId, order.Amount);
+        int silverCost = CalculateSilverCost(order.Amount);
         int grainCost = CalculateGrainCost(order.Amount);
         int recruitCount = order.Amount;
 
@@ -136,19 +136,14 @@ public sealed class RecruitResolver : ResolverBase
     /// <summary>
     /// 计算征兵的银消耗。
     /// </summary>
-    /// <param name="state">世界状态。只读。</param>
-    /// <param name="factionId">势力 Id。</param>
     /// <param name="amount">征兵数量。</param>
     /// <returns>银消耗量。</returns>
     /// <remarks>
-    /// 公式：BaseRecruitCostSilver × 人数 / 100（含政务修正）。
-    /// 修正来自在岗人才数量，TODO(设计) 待人事制度定稿后替换。
+    /// 公式：<c>BaseRecruitCostSilver × 人数 / 100</c>，无政务修正。
+    /// 征兵在新岗位模型中无对应政务岗，城守「综合加成」扩展按裁决留给 06，本轮不做。
     /// </remarks>
-    private int CalculateSilverCost(WorldState state, int factionId, int amount)
-    {
-        int baseCost = (int)((long)Config.BaseRecruitCostSilver * amount / PlaceholderNumbers.PercentBase);
-        return Math.Max(0, ScaleInteger(baseCost, GetGovernanceModifier(state, factionId)));
-    }
+    private int CalculateSilverCost(int amount)
+        => (int)((long)Config.BaseRecruitCostSilver * amount / PlaceholderNumbers.PercentBase);
 
     /// <summary>
     /// 计算征兵的粮消耗。
@@ -200,7 +195,7 @@ public sealed class RecruitResolver : ResolverBase
 
             case ResolveResultCode.RejectedNoResources:
             {
-                int silverCost = CalculateSilverCost(state, factionId, order.Amount);
+                int silverCost = CalculateSilverCost(order.Amount);
                 int grainCost = CalculateGrainCost(order.Amount);
                 return faction == null
                     ? "资源不足。"
