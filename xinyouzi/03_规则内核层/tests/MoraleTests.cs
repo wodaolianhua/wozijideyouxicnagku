@@ -738,8 +738,9 @@ public sealed class MoraleSystemTests
         Assert.False(state.GetArmy(0)!.HasRestedThisMonth);
         Assert.False(state.GetArmy(0)!.HasMutiniedThisMonth);
 
-        // 翻转不影响士气：未参战走恢复分支（50 → 53），士气健康不触发哗变。
-        Assert.Equal(53, state.GetArmy(0)!.Morale);
+        // 本月休整且未参战 → 走休整分支：挂起恢复/腐化，士气不增不减（50），无士气 delta。
+        Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmyMorale);
+        Assert.Equal(50, state.GetArmy(0)!.Morale);
 
         // ---- 段二：先清后判——上月已哗变、本月参战且士气 ≤ 0 → 可再次哗变 ----
         var relapsed = WorldWith(Army(morale: 0, soldiers: 1000));
@@ -919,5 +920,161 @@ public sealed class MoraleSystemTests
 
         // 999 × 3000 / 10000 = 299.7 → 299，剩 700。
         Assert.Equal(700, state.GetArmy(0)!.Soldiers);
+    }
+
+    // ========================================================================
+    //  第 6 轮补丁：休整分支 —— 休整部队本月挂起和平腐化
+    // ========================================================================
+
+    /// <summary>
+    /// 第 6 轮补丁 · 测试 1（正向）：休整挂起腐化。
+    /// MonthsWithoutBattle 已达腐化阈值、HasRestedThisMonth=true、Morale=40 时，
+    /// 本月结算既不恢复也不腐化——士气保持 40、无士气 delta、计数 +1、
+    /// HasRestedThisMonth 翻转 1→0 的 delta 在列。
+    /// </summary>
+    [Fact]
+    public void 休整挂起腐化_本月士气不变()
+    {
+        var state = WorldWith(Army(morale: 40, soldiers: 1000,
+            monthsWithoutBattle: Balance.MoraleDecayNoBattleThreshold - 1));
+        state.GetArmy(0)!.HasRestedThisMonth = true;
+
+        var deltas = System.ResolveMonthlyMorale(state);
+
+        // 无士气 delta：既不 +3 恢复也不 −6 腐化。
+        Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmyMorale);
+
+        // 计数 +1（休整不是战斗）。
+        var count = deltas.Single(d => d.Field == DeltaField.ArmyMonthsWithoutBattle);
+        Assert.Equal(Balance.MoraleDecayNoBattleThreshold - 1, count.OldValue);
+        Assert.Equal(Balance.MoraleDecayNoBattleThreshold, count.NewValue);
+
+        // 休整标记翻转 1→0 的 delta 在列。
+        var rested = deltas.Single(d => d.Field == DeltaField.ArmyHasRested);
+        Assert.Equal(1, rested.OldValue);
+        Assert.Equal(0, rested.NewValue);
+
+        Apply(state, deltas);
+        Assert.Equal(40, state.GetArmy(0)!.Morale);
+        Assert.False(state.GetArmy(0)!.HasRestedThisMonth);
+        Assert.Equal(Balance.MoraleDecayNoBattleThreshold, state.GetArmy(0)!.MonthsWithoutBattle);
+    }
+
+    /// <summary>
+    /// 第 6 轮补丁 · 测试 2（端到端小循环）：连续休整不哗变。
+    /// 12 个周期，每周期先 RestResolver 成功结算（+3、置标记），再跑月度结算。
+    /// 初始士气 20：12 周期后士气 > 0，且全程无散兵 delta、无哗变标记置位（NewValue==1）。
+    /// </summary>
+    [Fact]
+    public void 连续休整_12周期不哗变()
+    {
+        var state = WorldWith(Army(morale: 20, soldiers: 1000));
+        var system = System;
+        var restResolver = new RestResolver(Balance);
+
+        for (int month = 1; month <= 12; month++)
+        {
+            // 先休整：+3、置 HasRestedThisMonth 标记。
+            var rest = restResolver.Resolve(
+                state, Order.CreatePlayerOrder(ActionType.Rest, target: 0, amount: 0, secondary: 0));
+            Assert.True(rest.IsSuccess);
+            Apply(state, rest.Deltas);
+
+            // 再月度结算：休整分支 → 挂起腐化，士气不变。
+            var deltas = system.ResolveMonthlyMorale(state);
+
+            // 全程无散兵 delta、无哗变标记置位。
+            Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmySoldiers);
+            Assert.DoesNotContain(deltas, d =>
+                d.Field == DeltaField.ArmyHasMutiniedThisMonth && d.NewValue == 1);
+
+            Apply(state, deltas);
+
+            // 推进到下月，重置势力指令额度与月初标记（下一轮 Rest 才能再次生效）。
+            GameClock.AdvanceMonth(state);
+        }
+
+        Assert.True(state.GetArmy(0)!.Morale > 0);
+        Assert.False(state.GetArmy(0)!.HasMutiniedThisMonth);
+        Assert.Equal(1000, state.GetArmy(0)!.Soldiers);
+    }
+
+    /// <summary>
+    /// 第 6 轮补丁 · 测试 3（反向）：停止休整后腐化恢复。
+    /// 接续休整场景后停止 Rest，连续跑月度结算：腐化 −6/月重新生效、
+    /// 士气最终降至 0 并触发哗变。
+    /// </summary>
+    [Fact]
+    public void 停止休整后_腐化恢复并最终哗变()
+    {
+        var state = WorldWith(Army(morale: 20, soldiers: 1000,
+            monthsWithoutBattle: Balance.MoraleDecayNoBattleThreshold - 1));
+        var system = System;
+
+        // 先休整一个周期，把计数推到阈值、并让休整标记本轮生效。
+        var restResolver = new RestResolver(Balance);
+        var rest = restResolver.Resolve(
+            state, Order.CreatePlayerOrder(ActionType.Rest, target: 0, amount: 0, secondary: 0));
+        Assert.True(rest.IsSuccess);
+        Apply(state, rest.Deltas);
+        Apply(state, system.ResolveMonthlyMorale(state));
+
+        // 此刻计数已 ≥ 阈值（休整月 +1 后落腐化区），停止休整后腐化应 −6/月。
+        Assert.True(state.GetArmy(0)!.MonthsWithoutBattle >= Balance.MoraleDecayNoBattleThreshold);
+
+        bool mutinied = false;
+        for (int month = 1; month <= 20 && !mutinied; month++)
+        {
+            Apply(state, system.ResolveMonthlyMorale(state));
+            if (state.GetArmy(0)!.HasMutiniedThisMonth)
+            {
+                mutinied = true;
+            }
+
+            GameClock.AdvanceMonth(state);
+        }
+
+        // 腐化 −6/月必然把士气磨到 0，并触发哗变（散兵 + 标记置位）。
+        Assert.Equal(0, state.GetArmy(0)!.Morale);
+        Assert.True(mutinied);
+        Assert.True(state.GetArmy(0)!.Soldiers < 1000);
+    }
+
+    /// <summary>
+    /// 第 6 轮补丁 · 测试 4：休整与参战同月 → 参战优先。
+    /// HasEngagedThisMonth 与 HasRestedThisMonth 同为 true：走参战分支
+    /// （士气不额外增减、MonthsWithoutBattle 保持），休整标记仍 1→0 翻转。
+    /// </summary>
+    [Fact]
+    public void 休整与参战同月_走参战分支()
+    {
+        var state = WorldWith(Army(morale: 50, soldiers: 1000,
+            monthsWithoutBattle: 0));
+        state.GetArmy(0)!.HasEngagedThisMonth = true;
+        state.GetArmy(0)!.HasRestedThisMonth = true;
+
+        var deltas = System.ResolveMonthlyMorale(state);
+
+        // 参战分支：无士气 delta（不额外增减）。
+        Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmyMorale);
+
+        // MonthsWithoutBattle 保持（战斗已清零，不 +1）。
+        Assert.DoesNotContain(deltas, d => d.Field == DeltaField.ArmyMonthsWithoutBattle);
+
+        // 休整标记仍 1→0 翻转。
+        var rested = deltas.Single(d => d.Field == DeltaField.ArmyHasRested);
+        Assert.Equal(1, rested.OldValue);
+        Assert.Equal(0, rested.NewValue);
+
+        // 参战标记消费即清。
+        var engaged = deltas.Single(d => d.Field == DeltaField.ArmyHasEngagedThisMonth);
+        Assert.Equal(1, engaged.OldValue);
+        Assert.Equal(0, engaged.NewValue);
+
+        Apply(state, deltas);
+        Assert.Equal(50, state.GetArmy(0)!.Morale);
+        Assert.Equal(0, state.GetArmy(0)!.MonthsWithoutBattle);
+        Assert.False(state.GetArmy(0)!.HasRestedThisMonth);
+        Assert.False(state.GetArmy(0)!.HasEngagedThisMonth);
     }
 }

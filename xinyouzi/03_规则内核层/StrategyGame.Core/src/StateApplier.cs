@@ -76,6 +76,18 @@ public sealed class StateApplier : IStateApplier
             throw new ArgumentNullException(nameof(delta));
         }
 
+        // 契约 v1.5：按势力分账的指令额度是字典项（WorldState.ActionsThisMonthByFaction），
+        // 不走通用反射 setter。语义：写回 dict[key=TargetId] = NewValue；
+        // 旧值由 Resolver 构造 delta 时读取（key 不存在按 0），此处只负责落地。
+        if (delta.TargetType == DeltaTarget.Faction
+            && delta.Field == DeltaField.FactionActionsThisMonth)
+        {
+            var actionCounts = state.ActionsThisMonthByFaction
+                ??= new Dictionary<int, int>();
+            actionCounts[delta.TargetId] = delta.NewValue;
+            return;
+        }
+
         object? target = ResolveTarget(state, delta);
 
         // 点号路径：先解析根对象，再逐级深入。

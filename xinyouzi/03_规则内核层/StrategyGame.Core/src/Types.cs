@@ -51,7 +51,8 @@ public enum TurnStep
     /// <summary>第 7 步：执行本月到期的 PendingOrders。</summary>
     ExecutePendingOrders = 7,
 
-    /// <summary>第 8 步：兵源消耗。Soldier 归零 → 触发饥荒事件。</summary>
+    /// <summary>第 8 步：兵源自动补给 + 饥荒判定。兵源池下发给存活部队并归零；
+    /// 池为 0 且无任何存活部队 → 触发饥荒事件。</summary>
     SoldierConsumption = 8,
 
     /// <summary>第 9 步：AI 决策（通过 IFactionPlanner 接口产出下月指令）。</summary>
@@ -212,8 +213,14 @@ public static class DeltaField
     /// <summary>世界状态的当前月份。</summary>
     public const string WorldMonth = "Month";
 
-    /// <summary>世界状态的本月已执行指令数。</summary>
-    public const string WorldActionsThisMonth = "ActionsThisMonth";
+    /// <summary>势力本月已执行指令数（契约 v1.5：按势力分账）。</summary>
+    /// <remarks>
+    /// 用法：TargetType=Faction、TargetId=势力 Id，Field 指向
+    /// WorldState.ActionsThisMonthByFaction 字典项。
+    /// <see cref="StateApplier"/> 有对应分支：按 key=TargetId 对字典写回，
+    /// 旧值取不到（该势力本月尚未执行过指令）按 0 计。
+    /// </remarks>
+    public const string FactionActionsThisMonth = "ActionsThisMonthByFaction";
 
     /// <summary>玩家是否正在亲征（0/1）。</summary>
     public const string WorldPlayerIsCommanding = "Player.IsPersonallyCommanding";

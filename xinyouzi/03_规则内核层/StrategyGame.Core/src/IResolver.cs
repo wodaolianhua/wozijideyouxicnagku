@@ -143,20 +143,21 @@ public abstract class ResolverBase : IResolver
     }
 
     /// <summary>
-    /// 校验本月人力上限（单一势力每月可执行的指令总数）。
+    /// 校验本月人力上限（单一势力每月可执行的指令总数，契约 v1.5 按势力分账）。
     /// </summary>
     /// <param name="state">世界状态。只读。</param>
+    /// <param name="factionId">指令发起势力 Id。</param>
     /// <returns>
     /// 已达上限返回 <see cref="ResolveResultCode.RejectedInsufficientCapacity"/>，
     /// 否则返回 Success。
     /// </returns>
-    protected ResolveResultCode ValidateCapacity(WorldState state)
+    /// <remarks>
+    /// 【契约 v1.5】额度记账在 <c>WorldState.ActionsThisMonthByFaction</c>，
+    /// 以势力 Id 为 key，各势力互不挤占；key 取不到（该势力本月尚未执行过指令）按 0 计。
+    /// </remarks>
+    protected ResolveResultCode ValidateCapacity(WorldState state, int factionId)
     {
-        // TODO(设计): WorldState.ActionsThisMonth 是全局单一计数，
-        // 而 MaxOrdersPerFactionPerMonth 是按势力的上限。当前契约只有一个计数器，
-        // 因此只能做全局比较。若后续需要严格的按势力计数，
-        // 需向 00_项目管理 提契约变更（WorldState 增加 per-faction 字典）。
-        return state.ActionsThisMonth >= Config.MaxOrdersPerFactionPerMonth
+        return state.GetActionsThisMonth(factionId) >= Config.MaxOrdersPerFactionPerMonth
             ? ResolveResultCode.RejectedInsufficientCapacity
             : ResolveResultCode.Success;
     }

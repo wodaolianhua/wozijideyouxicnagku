@@ -99,6 +99,13 @@ public static class WorldStateExtensions
         return total;
     }
 
+    /// <summary>取某势力本月已执行的指令数（契约 v1.5 按势力分账）。</summary>
+    /// <param name="state">世界状态。只读。</param>
+    /// <param name="factionId">势力 Id。</param>
+    /// <returns>该势力本月已执行的指令数；字典无该 key 时按 0。</returns>
+    public static int GetActionsThisMonth(this WorldState state, int factionId)
+        => state.ActionsThisMonthByFaction.TryGetValue(factionId, out int count) ? count : 0;
+
     /// <summary>
     /// 解析 <see cref="Order"/> 的执行者所属势力 Id。
     /// </summary>

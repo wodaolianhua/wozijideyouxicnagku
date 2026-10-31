@@ -33,7 +33,6 @@ public sealed class PostEffectsTests
             Month = 1,
             Seed = 12345,
             Difficulty = DifficultyLevel.Normal,
-            ActionsThisMonth = 0,
             Player = new PlayerProfile { Id = Order.PlayerId, Name = "玩家", Command = 60 },
             Factions = new List<Faction>
             {

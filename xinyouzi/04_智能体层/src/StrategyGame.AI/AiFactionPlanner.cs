@@ -134,11 +134,30 @@ public sealed class AiFactionPlanner : IFactionPlanner
         var armies = state.Armies.Where(a => a.OwnerFactionId == factionId).ToList();
         int totalSoldiers = armies.Sum(a => a.Soldiers);
 
+        // 【v1.5 裁决】休整是士气维护，不受“缺兵/屯田”策略门控：
+        // 和平腐化 −6/月、哗变每月连发可散兵 30%，等部队进军事分支再休整为时已晚。
+        // 03 第 6 轮起，本月已休整的部队月度结算挂起腐化（Rest 另给 +3/月，冷却 1 月/军）。
+        var restArmy = armies
+            .Where(a => a.Soldiers > 0
+                && a.Morale < MoraleRestThreshold
+                && !a.HasRestedThisMonth)
+            .OrderBy(a => a.Morale)
+            .ThenBy(a => a.Id)
+            .FirstOrDefault();
+        if (restArmy != null && orders.Count < maxOrders)
+        {
+            orders.Add(Order.CreateAiOrder(ActionType.Rest, factionId, restArmy.Id));
+            return; // 休整优先，本月不再出屯田/征兵/进攻指令（与 AddMilitaryOrders 既有语义一致）
+        }
+        // TODO：多军情景每月只发 1 条 Rest（取士气最低、Id 最小者），未来扩军后再议多条休整。
+
         // 判断威胁：是否有相邻敌城
         bool threatened = IsThreatened(state, factionId, cities);
 
         // 兵源瓶颈：人口少、兵少 → 优先屯田攒兵源
-        bool soldierStarved = totalSoldiers < SoldierSafetyThreshold || res.Soldier < 100;
+        // v1.5：第 8 步补给每月清池、第 9 步才规划，有军势力的 res.Soldier 结构上恒为 0，
+        // 兵源瓶颈只按在役总兵力判定，不再看池余量。
+        bool soldierStarved = totalSoldiers < SoldierSafetyThreshold;
 
         // 选择策略
         if (soldierStarved)

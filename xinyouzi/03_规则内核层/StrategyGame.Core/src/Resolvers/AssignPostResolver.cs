@@ -83,7 +83,7 @@ public sealed class AssignPostResolver : ResolverBase
             return ResolveResultCode.RejectedTargetOccupied;
         }
 
-        return ValidateCapacity(state);
+        return ValidateCapacity(state, factionId);
     }
 
     /// <summary>执行任命结算。纯函数，不修改 state。</summary>
@@ -123,8 +123,8 @@ public sealed class AssignPostResolver : ResolverBase
                 DeltaTarget.Officer, officer.Id, DeltaField.OfficerPostedSinceMonths,
                 officer.PostedSinceMonths, 0)
             .WithDelta(
-                DeltaTarget.WorldState, 0, DeltaField.WorldActionsThisMonth,
-                state.ActionsThisMonth, state.ActionsThisMonth + 1)
+                DeltaTarget.Faction, factionId, DeltaField.FactionActionsThisMonth,
+                state.GetActionsThisMonth(factionId), state.GetActionsThisMonth(factionId) + 1)
             .WithEvent(
                 EventCategory.Personnel,
                 EventKeys.AssignPost,

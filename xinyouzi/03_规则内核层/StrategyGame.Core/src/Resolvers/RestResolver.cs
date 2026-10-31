@@ -67,7 +67,7 @@ namespace StrategyGame.Core.Resolvers;
             return ResolveResultCode.RejectedCooldown;
         }
 
-        return ValidateCapacity(state);
+        return ValidateCapacity(state, factionId);
     }
 
     /// <summary>执行休整结算。纯函数，不修改 state。</summary>
@@ -102,8 +102,8 @@ namespace StrategyGame.Core.Resolvers;
                 DeltaTarget.Army, army.Id, DeltaField.ArmyHasRested,
                 army.HasRestedThisMonth ? 1 : 0, 1)
             .WithDelta(
-                DeltaTarget.WorldState, 0, DeltaField.WorldActionsThisMonth,
-                state.ActionsThisMonth, state.ActionsThisMonth + 1)
+                DeltaTarget.Faction, factionId, DeltaField.FactionActionsThisMonth,
+                state.GetActionsThisMonth(factionId), state.GetActionsThisMonth(factionId) + 1)
             .WithEvent(
                 EventCategory.Military,
                 EventKeys.Rest,

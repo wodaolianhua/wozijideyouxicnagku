@@ -170,6 +170,26 @@ public sealed class CloneTests
         Assert.Equal("测试事件", original.EventLog[0].Message);
     }
 
+    /// <summary>契约 v1.5：额度字典必须深拷贝，修改副本不影响原对象。</summary>
+    [Fact]
+    public void Clone_ModifyActionsByFaction_ShouldNotAffectOriginal()
+    {
+        var original = SampleData.CreateWorld();
+        original.ActionsThisMonthByFaction[0] = 3;
+        original.ActionsThisMonthByFaction[1] = 1;
+
+        var clone = original.Clone();
+        Assert.NotSame(original.ActionsThisMonthByFaction, clone.ActionsThisMonthByFaction);
+
+        clone.ActionsThisMonthByFaction[0] = 99;
+        clone.ActionsThisMonthByFaction.Remove(1);
+        clone.ActionsThisMonthByFaction[2] = 7;
+
+        Assert.Equal(3, original.ActionsThisMonthByFaction[0]);
+        Assert.Equal(1, original.ActionsThisMonthByFaction[1]);
+        Assert.False(original.ActionsThisMonthByFaction.ContainsKey(2));
+    }
+
     /// <summary>未做任何修改时，克隆应与原状态逐字段相等。</summary>
     [Fact]
     public void Clone_Unmodified_ShouldBeFieldByFieldEqual()

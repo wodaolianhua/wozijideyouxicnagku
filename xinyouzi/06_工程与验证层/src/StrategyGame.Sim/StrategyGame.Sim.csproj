@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <OutputType>Library</OutputType>
+    <RootNamespace>StrategyGame.Sim</RootNamespace>
+    <AssemblyName>StrategyGame.Sim</AssemblyName>
+
+    <AnalysisLevel>latest</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      只引用 03 规则内核层与 04 智能体层。
+      契约类型（WorldState / Order / ResolveResult 等）全部来自 StrategyGame.Contracts，
+      本包【不重新声明任何契约类型】——重声明会产生两套类型，编译必然失败。
+    -->
+    <ProjectReference Include="..\..\..\03_规则内核层\StrategyGame.Core\StrategyGame.Core.csproj" />
+    <ProjectReference Include="..\..\..\04_智能体层\src\StrategyGame.AI\StrategyGame.AI.csproj" />
+  </ItemGroup>
+
+</Project>

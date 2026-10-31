@@ -5,7 +5,7 @@
 //
 //   1推进时间    2 经济结算      3 民心/稳定     4 基建推进
 //   5 兵源结算   6 人物事件      7 执行 PendingOrders
-//   8 兵源消耗   9 AI 决策       10 胜负判定     11 交还决策权
+//   8 兵源补给   9 AI 决策       10 胜负判定     11 交还决策权
 //
 //  【禁止】不把玩法逻辑写进本文件。本文件只做调度：
 //  玩法逻辑全在 Resolver 与 Systems 中，本文件只决定「什么时候调用谁」。
@@ -113,7 +113,7 @@ public sealed class TurnPipeline : ITurnPipeline
         // ---------- 第 7 步：执行本月到期的延迟指令 ----------
         RunPendingOrders(state, result);
 
-        // ---------- 第 8 步：兵源消耗 ----------
+        // ---------- 第 8 步：兵源自动补给 + 饥荒判定 ----------
         RunSoldierConsumption(state, result);
 
         // ---------- 第 9 步：AI 决策 ----------
@@ -249,49 +249,89 @@ public sealed class TurnPipeline : ITurnPipeline
     }
 
     /// <summary>
-    /// 第 8 步：兵源消耗。Soldier 归零时触发饥荒事件。
+    /// 第 8 步：兵源自动补给 + 饥荒判定（裁决单 D3）。
     /// </summary>
     /// <param name="state">世界状态。</param>
     /// <param name="result">本回合结果，事件将累加其中。</param>
     /// <remarks>
-    /// TODO(设计): 消耗公式待经济系统定稿。当前按当月出兵总数扣除，
-    /// 定稿后替换为按人口与屯田度计算的消耗量。
+    /// 【P0 最简链路】兵源池（Resources.Soldier）是部队兵力的唯一来源：
+    /// 第 5 步产入池，本步一次性下发给存活部队（Army.Soldiers &gt; 0，按 Army.Id 升序），
+    /// 每队得 floor(P/n)，余数 P % n 给 Id 最小的前若干队每队 +1，随后池归零。
+    /// 未来「手动编组/部署」「编制上限」接入后替换本分配规则（裁决单已备案）。
+    /// 饥荒：兵源池为 0 且该势力不存在任何存活部队才触发（补给后不会每月误触）。
+    /// 确定性：分配只依赖 Id 排序与整数除法，禁止引入随机数。
     /// </remarks>
-    private static void RunSoldierConsumption(WorldState state, TurnResult result)
+    private void RunSoldierConsumption(WorldState state, TurnResult result)
     {
         foreach (var faction in state.Factions)
         {
-            int totalSoldiers = 0;
-            foreach (var army in state.Armies)
+            // 存活部队：Soldiers &gt; 0（== 0 视为已覆灭，不补），按 Id 升序保证确定性。
+            List<Army> aliveArmies = state.Armies
+                .Where(a => a.OwnerFactionId == faction.Id && a.Soldiers > 0)
+                .OrderBy(a => a.Id)
+                .ToList();
+
+            int pool = faction.Resources.Soldier;
+
+            // ---- 自动补给：n > 0 且 P > 0 时把池一次性分光 ----
+            if (aliveArmies.Count > 0 && pool > 0)
             {
-                if (army.OwnerFactionId == faction.Id)
+                var deltas = new List<StateDelta>(aliveArmies.Count + 1);
+                int baseShare = pool / aliveArmies.Count;
+                int remainder = pool % aliveArmies.Count;
+
+                for (int i = 0; i < aliveArmies.Count; i++)
                 {
-                    totalSoldiers += army.Soldiers;
+                    int gain = baseShare + (i < remainder ? 1 : 0);
+                    if (gain <= 0)
+                    {
+                        continue;
+                    }
+
+                    var army = aliveArmies[i];
+                    deltas.Add(new StateDelta
+                    {
+                        TargetType = DeltaTarget.Army,
+                        TargetId = army.Id,
+                        Field = DeltaField.ArmySoldiers,
+                        OldValue = army.Soldiers,
+                        NewValue = army.Soldiers + gain,
+                    });
                 }
+
+                // 兵源池归零（字段路径与 RecruitResolver 产兵 delta 同款）。
+                deltas.Add(new StateDelta
+                {
+                    TargetType = DeltaTarget.Faction,
+                    TargetId = faction.Id,
+                    Field = DeltaField.FactionSoldier,
+                    OldValue = pool,
+                    NewValue = 0,
+                });
+
+                ApplyDeltas(state, deltas);
             }
 
-            if (faction.Resources.Soldier != 0)
+            // ---- 饥荒判定：池为 0 且无任何存活部队 ----
+            if (pool == 0 && aliveArmies.Count == 0)
             {
-                continue;
+                // 兵源归零且无部队：粮不接济、民心动摇。
+                // TODO(设计): 饥荒的具体惩罚数值待经济系统定稿，当前固定扣 10 民心。
+                int moraleLoss = PlaceholderNumbers.FamineMoraleLoss;
+
+                var famine = new EventRecord
+                {
+                    Year = state.Year,
+                    Month = state.Month,
+                    Category = EventCategory.Disaster,
+                    EventKey = EventKeys.Famine,
+                    Message = $"{faction.Name}兵源耗尽，全境饥荒，民心下降 {moraleLoss}。",
+                    FactionId = faction.Id,
+                };
+
+                state.EventLog.Add(famine);
+                result.Events.Add(famine);
             }
-
-            // 兵源归零：粮不接济、民心动摇。
-            // TODO(设计): 饥荒的具体惩罚数值待经济系统定稿，当前固定扣 10 民心。
-            int moraleLoss = PlaceholderNumbers.FamineMoraleLoss;
-
-            var famine = new EventRecord
-            {
-                Year = state.Year,
-                Month = state.Month,
-                Category = EventCategory.Disaster,
-                EventKey = EventKeys.Famine,
-                Message = $"{faction.Name}兵源耗尽，全境饥荒，民心下降 {moraleLoss}。",
-                FactionId = faction.Id,
-            };
-
-            state.EventLog.Add(famine);
-            result.Events.Add(famine);
-            _ = totalSoldiers;
         }
     }
 

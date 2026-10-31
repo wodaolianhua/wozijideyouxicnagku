@@ -164,17 +164,32 @@ public sealed class TurnPipelineTests
             "稳定度低于三成时民心应下降。");
     }
 
-    /// <summary>第 5 步：兵源结算必须增加可用士兵。</summary>
+    /// <summary>第 5+8 步：兵源结算经自动补给流入部队（池在月内归零）。</summary>
+    /// <remarks>
+    /// 【第 5 轮补丁改写】第 8 步补给上线后，势力兵源池月内即全部分发给存活部队，
+    /// 「池存量增加」不再是第 5 步产兵的可观测结果；改断言势力总兵力（池 + 部队）增加。
+    /// </remarks>
     [Fact]
-    public void RunMonth_ShouldProduceSoldierIncome()
+    public void RunMonth_SoldierIncome_ShouldFlowIntoArmies()
     {
         var state = SampleData.CreateWorld();
-        int soldierBefore = state.GetFaction(0)!.Resources.Soldier;
+        int poolBefore = state.GetFaction(0)!.Resources.Soldier;
+        int armySoldiersBefore = state.Armies
+            .Where(a => a.OwnerFactionId == 0)
+            .Sum(a => a.Soldiers);
 
         var (pipeline, _) = CreatePipeline(state);
         pipeline.RunMonth(state);
 
-        Assert.True(state.GetFaction(0)!.Resources.Soldier > soldierBefore);
+        int totalAfter = state.GetFaction(0)!.Resources.Soldier
+            + state.Armies.Where(a => a.OwnerFactionId == 0).Sum(a => a.Soldiers);
+
+        Assert.True(
+            totalAfter > poolBefore + armySoldiersBefore,
+            "兵源结算 + 自动补给后，势力总兵力（池 + 部队）应增加。");
+
+        // 池在第 8 步归零：第 5 步产出已全部下发。
+        Assert.Equal(0, state.GetFaction(0)!.Resources.Soldier);
     }
 
     /// <summary>第 7 步：本月到期的延迟指令必须被执行并出队。</summary>
@@ -230,13 +245,18 @@ public sealed class TurnPipelineTests
         Assert.Equal(100, state.GetCity(0)!.Defense);
     }
 
-    /// <summary>第 8 步：兵源耗尽应触发饥荒事件。</summary>
+    /// <summary>第 8 步：兵源池为 0 且无任何存活部队 → 每个势力各触发一条饥荒事件。</summary>
+    /// <remarks>
+    /// 【第 5 轮补丁改写】饥荒新条件：池为 0 且不存在 Soldiers &gt; 0 的部队。
+    /// 原条件（池为 0 即饥荒）会在补给后每月误触，已废弃。
+    /// </remarks>
     [Fact]
     public void RunMonth_ZeroSoldier_ShouldTriggerFamine()
     {
         var state = SampleData.CreateWorld();
 
-        // 把所有势力的兵源与人口压到 0，确保第 5 步不产生兵源
+        // 把所有势力的兵源与人口压到 0，确保第 5 步不产生兵源；
+        // 再把所有部队兵力清零（视为已覆灭），使「池为 0 且无存活部队」成立。
         foreach (var faction in state.Factions)
         {
             faction.Resources.Soldier = 0;
@@ -247,10 +267,20 @@ public sealed class TurnPipelineTests
             city.Population = 0;
         }
 
+        foreach (var army in state.Armies)
+        {
+            army.Soldiers = 0;
+        }
+
         var (pipeline, _) = CreatePipeline(state);
         var result = pipeline.RunMonth(state);
 
         Assert.Contains(result.Events, e => e.EventKey == EventKeys.Famine);
+        // 权威日志（result.Events 在第 11 步会并入整个 EventLog，存在重复条目，
+        // 计数断言必须落在 state.EventLog 上）：三个势力各恰好一条。
+        Assert.Equal(
+            state.Factions.Count,
+            state.EventLog.Count(e => e.EventKey == EventKeys.Famine));
     }
 
     /// <summary>第 9 步：AI 决策必须通过接口产出下月指令，且不得修改状态。</summary>
@@ -343,17 +373,18 @@ public sealed class TurnPipelineTests
         Assert.True(result.GameOver);
     }
 
-    /// <summary>人力计数必须在每月重置，否则第 2 个月起玩家永远无法下令。</summary>
+    /// <summary>人力计数必须在每月重置，否则第 2 个月起玩家永远无法下令。
+    /// 契约 v1.5：计数按势力分账，月初整体重建为空字典。</summary>
     [Fact]
     public void RunMonth_ShouldResetActionCounter_EachMonth()
     {
         var state = SampleData.CreateWorld();
-        state.ActionsThisMonth = 5;
+        state.ActionsThisMonthByFaction[0] = 5;
 
         var (pipeline, _) = CreatePipeline(state);
         pipeline.RunMonth(state);
 
-        Assert.Equal(0, state.ActionsThisMonth);
+        Assert.Empty(state.ActionsThisMonthByFaction);
     }
 
     /// <summary>连续 12 轮不得抛异常，且时间推进正确。</summary>

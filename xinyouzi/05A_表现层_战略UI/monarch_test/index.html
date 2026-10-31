@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Monarch 骨骼测试 · 进入游戏验证</title>
+<style>
+  html,body{margin:0;height:100%;background:#10131a;color:#e6e6e6;font-family:system-ui,"Microsoft YaHei",sans-serif;overflow:hidden}
+  #app{position:fixed;inset:0}
+  #hud{position:fixed;left:12px;top:12px;background:rgba(0,0,0,.45);padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.7;max-width:320px}
+  #hud b{color:#7fd1ff}
+  button{margin:3px 4px 0 0;padding:5px 10px;border:1px solid #3a4a5a;background:#1b2530;color:#e6e6e6;border-radius:6px;cursor:pointer;font-size:12px}
+  button.on{background:#2b6cb0;border-color:#4a90d9}
+  #log{position:fixed;right:12px;bottom:12px;background:rgba(0,0,0,.45);padding:8px 10px;border-radius:8px;font-size:12px;white-space:pre;max-width:46vw}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <div><b>Monarch 骨骼验证</b>（拖拽旋转视角 / 滚轮缩放）</div>
+  <div id="bones">骨骼：加载中…</div>
+  <div style="margin-top:6px">动作：</div>
+  <div id="btns">
+    <button data-a="idle" class="on">待机</button>
+    <button data-a="wave">招手</button>
+    <button data-a="walk">走路(原地)</button>
+    <button data-a="stop">静止</button>
+  </div>
+</div>
+<div id="log"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "/client/node_modules/three/build/three.module.js",
+    "three/addons/": "/client/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const log = (...a) => { document.getElementById('log').textContent = a.join(' '); };
+
+// ---- 场景 / 相机 / 渲染器 ----
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x10131a);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.01, 1000);
+camera.position.set(1.6, 1.4, 2.6);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+app.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.9, 0);
+controls.update();
+
+// ---- 灯光 + 地面 ----
+scene.add(new THREE.HemisphereLight(0xffffff, 0x333344, 1.1));
+const dir = new THREE.DirectionalLight(0xffffff, 1.4); dir.position.set(3,5,2); scene.add(dir);
+const grid = new THREE.GridHelper(12, 12, 0x335577, 0x223344); scene.add(grid);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(6, 48),
+  new THREE.MeshStandardMaterial({color:0x1a2230, roughness:1}));
+ground.rotation.x = -Math.PI/2; scene.add(ground);
+
+// ---- 加载 rigged glb ----
+let action = 'idle';
+let skinned = null, skeleton = null, modelGroup = null, baseY = 0;
+const bone = {};
+const BONE_NAMES = ['Root','Hips','Spine','Chest','Neck','Head','Arm.L','Arm.R','Leg.L','Leg.R'];
+const X_AXIS = new THREE.Vector3(1,0,0), Y_AXIS = new THREE.Vector3(0,1,0), Z_AXIS = new THREE.Vector3(0,0,1);
+
+new GLTFLoader().load('./monarch_rigged.glb', (gltf) => {
+  const root = gltf.scene;
+  modelGroup = new THREE.Group();
+  modelGroup.add(root);
+  scene.add(modelGroup);
+
+  // 找 SkinnedMesh + 骨架
+  root.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
+  if (!skinned) { log('⚠️ 没找到 SkinnedMesh，绑定可能失败'); return; }
+  skeleton = skinned.skeleton;
+  for (const n of BONE_NAMES) bone[n] = skeleton.bones.find(b => b.name === n) || null;
+
+  // 自动扶正：若模型是“躺”着的（高度不在 Y 上），转一下
+  let box = new THREE.Box3().setFromObject(modelGroup);
+  const size = new THREE.Vector3(); box.getSize(size);
+  if (size.y < size.z * 0.6 && size.y < size.x * 0.6) {
+    modelGroup.rotation.x = -Math.PI/2;            // 立起来
+    box = new THREE.Box3().setFromObject(modelGroup);
+  }
+  box.getSize(size);
+  baseY = -box.min.y;                              // 脚踩在 y=0
+  modelGroup.position.y = baseY;
+
+  document.getElementById('bones').textContent =
+    '骨骼(' + skeleton.bones.length + ')：' + skeleton.bones.map(b=>b.name).join(' ');
+  log('✅ 加载完成  尺寸: ' + size.x.toFixed(2)+' × '+size.y.toFixed(2)+' × '+size.z.toFixed(2));
+}, undefined, (e) => log('❌ 加载失败: ' + e.message));
+
+// ---- 动作按钮 ----
+document.getElementById('btns').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  action = b.dataset.a;
+  document.querySelectorAll('#btns button').forEach(x=>x.classList.toggle('on', x===b));
+});
+
+// ---- 渲染循环：直接驱动骨骼 ----
+const clock = new THREE.Clock();
+function tick() {
+  const t = clock.getElapsedTime();
+  // 每帧先把用到的骨头归零，再按动作施加旋转
+  for (const n of BONE_NAMES) if (bone[n]) bone[n].rotation.set(0,0,0);
+
+  if (skinned) {
+    if (action === 'idle') {
+      if (bone.Chest) bone.Chest.rotateOnWorldAxis(X_AXIS, Math.sin(t*1.5)*0.04);
+      if (bone.Head)  bone.Head.rotateOnWorldAxis(Y_AXIS, Math.sin(t*0.8)*0.15);
+    } else if (action === 'wave') {
+      if (bone.ArmL) { bone.ArmL.rotateOnWorldAxis(Z_AXIS, -1.0); bone.ArmL.rotateOnWorldAxis(X_AXIS, Math.sin(t*6)*0.4); }
+      if (bone.Chest) bone.Chest.rotateOnWorldAxis(X_AXIS, Math.sin(t*1.5)*0.03);
+    } else if (action === 'walk') {
+      const s = Math.sin(t*4)*0.5;
+      if (bone.LegL) bone.LegL.rotateOnWorldAxis(X_AXIS,  s);
+      if (bone.LegR) bone.LegR.rotateOnWorldAxis(X_AXIS, -s);
+      if (bone.ArmL) bone.ArmL.rotateOnWorldAxis(X_AXIS, -s*0.4);
+      if (bone.ArmR) bone.ArmR.rotateOnWorldAxis(X_AXIS,  s*0.4);
+      if (bone.Chest) bone.Chest.rotateOnWorldAxis(Y_AXIS, Math.sin(t*4)*0.05);
+    }
+    // 'stop'：保持归零（静止 T 姿）
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

@@ -21,11 +21,11 @@ namespace StrategyGame.Core;
 public sealed class GameClock
 {
     /// <summary>推进一个月。</summary>
-    /// <param name="state">世界状态。将修改其 Year / Month / ActionsThisMonth。</param>
+    /// <param name="state">世界状态。将修改其 Year / Month / ActionsThisMonthByFaction。</param>
     /// <returns>本次推进后是否跨年（12 月 → 1 月）。</returns>
     /// <remarks>
-    /// 月 +1；超过 12 则年 +1、月归 1。同时把本月已执行指令数清零，
-    /// 因为人力上限是按月计算的。
+    /// 月 +1；超过 12 则年 +1、月归 1。同时把本月已执行指令数清零（契约 v1.5：
+    /// 按势力分账的字典整体重建），因为人力上限是按月计算的。
     /// </remarks>
     public static bool AdvanceMonth(WorldState state)
     {
@@ -42,7 +42,10 @@ public sealed class GameClock
         }
 
         // 新的一月，人力重新满额。
-        state.ActionsThisMonth = 0;
+        // 【契约 v1.5】额度按势力分账（WorldState.ActionsThisMonthByFaction），
+        // 月初直接重建空字典：本方法在第 1 步执行，Factions 在建局时已固定、
+        // 月内不会增删，空字典对任何势力都读到 0，与逐键置 0 等价。
+        state.ActionsThisMonthByFaction = new Dictionary<int, int>();
 
         return crossedYear;
     }

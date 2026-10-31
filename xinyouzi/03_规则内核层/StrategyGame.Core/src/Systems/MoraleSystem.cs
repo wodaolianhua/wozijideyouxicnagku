@@ -53,17 +53,20 @@ public sealed class MoraleSystem
     /// <code>
     /// 0. 月度标记月初翻转（第 3 轮补丁·修复二）：HasRestedThisMonth /
     ///    HasMutiniedThisMonth 语义都是「同一月内防重复」，月度结算开头先翻转
-    ///    （仅当为 true 时产出 1→0 delta），再走三分支。
+    ///    （仅当为 true 时产出 1→0 delta），再走四分支。
     ///    【先清后判】翻转只产出 delta、不改 state（纯函数约束），哗变判定
     ///    使用翻转后的局部值：上月哗变、本月士气仍 ≤ 0 的部队允许再次哗变。
     /// 1. 若 HasEngagedThisMonth（本结算周期内参过战，v1.4 参战信号）：
     ///    不恢复、不腐化——战斗增减已在战斗结算时由 DispatchResolver 按 5.4 结过；
     ///    MonthsWithoutBattle 保持不变（战斗时已清零，不 +1）；
     ///    参战标记消费即清（1 → 0）。
-    /// 2. 未参战，且 MonthsWithoutBattle + 1 &lt; 阈值 → morale += MoraleDecayPerMonth（恢复）
-    /// 3. 未参战，且 MonthsWithoutBattle + 1 ≥ 阈值 → morale -= MoraleDecayNoBattlePerMonth（腐化）
-    /// 4. morale 夹到 [0, MoraleMax]
-    /// 5. morale ≤ 0 且未哗变过（按翻转后的标记）→ 解散 MutinyRoutRate 比例兵力并标记（两个分支都判）
+    /// 2. 否则若本月已休整（第 6 轮补丁）：挂起恢复/腐化——Rest 已给 +3（冷却防刷），
+    ///    此处士气不增不减、不产出士气 delta；MonthsWithoutBattle 仍 +1（休整不是战斗），
+    ///    但腐化暂不生效。停止休整后 −6/月腐化恢复。
+    /// 3. 未参战、未休整，且 MonthsWithoutBattle + 1 &lt; 阈值 → morale += MoraleDecayPerMonth（恢复）
+    /// 4. 未参战、未休整，且 MonthsWithoutBattle + 1 ≥ 阈值 → morale -= MoraleDecayNoBattlePerMonth（腐化）
+    /// 5. morale 夹到 [0, MoraleMax]
+    /// 6. morale ≤ 0 且未哗变过（按翻转后的标记）→ 解散 MutinyRoutRate 比例兵力并标记（各分支都判）
     /// </code>
     ///
     /// 【为什么先读标记再 +1】参战信号（v1.4）解决「计数为 0 无法区分新部队与刚参战」
@@ -95,6 +98,10 @@ public sealed class MoraleSystem
             // 「同一月内防重复」，因此在每次月度结算开头统一翻转。
             // 注意：翻转只产出 delta，不改 state（纯函数约束）；
             // RestResolver / DispatchResolver 对这两个字段的现有写法不动。
+            //
+            // 【第 6 轮补丁 · 休整分支】必须在翻转动作之前捕获旧值：
+            // 休整分支要据此判断「本月是否执行过休整」，若先翻转再判会丢失信号。
+            bool restedThisMonth = army.HasRestedThisMonth;
             if (army.HasRestedThisMonth)
             {
                 deltas.Add(new StateDelta
@@ -145,9 +152,22 @@ public sealed class MoraleSystem
                     NewValue = 0,
                 });
             }
+            else if (restedThisMonth)
+            {
+                // ---- 分支二：休整分支（第 6 轮补丁）----
+                // 休整部队本月挂起和平腐化：Rest 结算已给 +3/月（冷却防刷），
+                // 此处不再自然恢复；MonthsWithoutBattle 仍累加但腐化暂不生效。
+                // 停止休整后 −6/月腐化恢复。
+                //
+                // 休整不是战斗：连续无战月计数照走（+1），越不越阈值都不影响
+                // 本月（腐化挂起），因此士气既不 +MoraleDecayPerMonth 也不
+                // −MoraleDecayNoBattlePerMonth，净变化 0（Rest 已给 +3）。
+                newMorale = army.Morale;
+                monthsWithoutBattle = army.MonthsWithoutBattle + 1;
+            }
             else
             {
-                // ---- 分支二 / 三：未参战月（恢复与腐化互斥，按序判定）----
+                // ---- 分支三 / 四：未参战月（恢复与腐化互斥，按序判定）----
                 // 用结算前的值 +1 后比较：本月是第 4 个无战月时当月就扣。
                 monthsWithoutBattle = army.MonthsWithoutBattle + 1;
 

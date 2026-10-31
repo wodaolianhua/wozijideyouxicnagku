@@ -242,16 +242,17 @@ public sealed class GameClockTests
         Assert.Equal(1, state.Month);
     }
 
-    /// <summary>新的一月应清空本月指令计数。</summary>
+    /// <summary>新的一月应清空本月指令计数（契约 v1.5：按势力分账字典整体重建）。</summary>
     [Fact]
     public void AdvanceMonth_ShouldResetMonthlyActionCounter()
     {
         var state = SampleData.CreateWorld();
-        state.ActionsThisMonth = 4;
+        state.ActionsThisMonthByFaction[0] = 4;
+        state.ActionsThisMonthByFaction[2] = 9;
 
         GameClock.AdvanceMonth(state);
 
-        Assert.Equal(0, state.ActionsThisMonth);
+        Assert.Empty(state.ActionsThisMonthByFaction);
     }
 
     /// <summary>年+月与单调整数的互转应可逆。</summary>

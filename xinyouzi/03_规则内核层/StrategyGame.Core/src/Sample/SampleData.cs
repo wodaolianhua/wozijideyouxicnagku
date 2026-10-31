@@ -102,7 +102,6 @@ public static class SampleData
             Month = 1,
             Seed = seed,
             Difficulty = DifficultyLevel.Normal,
-            ActionsThisMonth = 0,
             Player = new PlayerProfile
             {
                 Id = Order.PlayerId,

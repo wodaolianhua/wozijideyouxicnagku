@@ -273,8 +273,13 @@ public sealed class WorldState
     /// </summary>
     public DifficultyLevel Difficulty { get; set; } = DifficultyLevel.Normal;
 
-    /// <summary>本势力本月已执行的指令数，用于人力上限控制。</summary>
-    public int ActionsThisMonth { get; set; }
+    /// <summary>
+    /// 各势力本月已执行的指令数（key=势力 Id），用于按势力的人力上限控制。
+    /// 月初由 GameClock 清零；深拷贝必须复制字典内容。
+    /// 【契约 v1.5 变更】取代原全局单计数器 int ActionsThisMonth：
+    /// MaxOrdersPerFactionPerMonth 名义按势力，旧全局计数会让多方混战时互相挤占额度。
+    /// </summary>
+    public Dictionary<int, int> ActionsThisMonthByFaction { get; set; } = new();
 
     /// <summary>
     /// 玩家档案。固定只有一个，Id 恒为 0。
@@ -293,7 +298,8 @@ public sealed class WorldState
     public WorldState Clone() => new()
     {
         Year = Year, Month = Month, Seed = Seed,
-        Difficulty = Difficulty, ActionsThisMonth = ActionsThisMonth,
+        Difficulty = Difficulty,
+        ActionsThisMonthByFaction = new Dictionary<int, int>(ActionsThisMonthByFaction),
         Player = Player.Clone(),
         Factions = Factions.ConvertAll(f => f.Clone()),
         Cities = Cities.ConvertAll(c => c.Clone()),

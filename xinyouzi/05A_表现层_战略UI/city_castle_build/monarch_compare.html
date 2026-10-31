@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>君主 原始 vs 压缩 对照</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <style>
+    html,body{margin:0;height:100%;background:#11141b;color:#e8e4d8;font-family:"Microsoft YaHei",sans-serif}
+    .wrap{display:flex;flex-direction:column;height:100%}
+    header{padding:10px 16px;background:#0c0f15;border-bottom:1px solid #232a36}
+    header b{color:#c9a44c}
+    .stage{display:flex;flex:1;min-height:0}
+    .cell{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid #232a36}
+    .cell:last-child{border-right:none}
+    .cell .cap{padding:8px 12px;font-size:13px;background:#161b24}
+    .cell .cap .big{color:#c9a44c;font-size:15px}
+    model-viewer{flex:1;width:100%;background:radial-gradient(circle at 50% 40%,#1b2230,#0c0f15);min-height:0}
+    .bar{padding:6px 16px;font-size:12px;color:#9aa3b2;background:#0c0f15}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><b>君主 对照</b>：左 = AI 原始生成(30MB)　右 = 压缩后(0.62MB / 2.5万面)</header>
+    <div class="stage">
+      <div class="cell">
+        <div class="cap"><span class="big">原始</span> · monarch_raw.glb · 30MB · 约50万面 · 高分辨率贴图</div>
+        <model-viewer src="monarch_raw.glb" camera-controls auto-rotate
+          shadow-intensity="1" exposure="1.1" environment-image="neutral"
+          rotation-per-second="20deg">
+          <div slot="poster">加载中（原文件 30MB，稍候）…</div>
+        </model-viewer>
+      </div>
+      <div class="cell">
+        <div class="cap"><span class="big">压缩</span> · monarch.glb · 0.62MB · 2.5万面 · Draco+WebP</div>
+        <model-viewer src="monarch.glb" camera-controls auto-rotate
+          shadow-intensity="1" exposure="1.1" environment-image="neutral"
+          rotation-per-second="20deg">
+          <div slot="poster">加载中…</div>
+        </model-viewer>
+      </div>
+    </div>
+    <div class="bar">两边都可拖拽旋转、滚轮缩放。重点对照：压缩版是否丢细节、有破面、边缘毛刺或贴图模糊。</div>
+  </div>
+</body>
+</html>

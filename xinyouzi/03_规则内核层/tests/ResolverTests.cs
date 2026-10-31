@@ -89,12 +89,14 @@ public sealed class RecruitResolverTests
         Assert.Equal(ResolveResultCode.RejectedInvalidTarget, result.Code);
     }
 
-    /// <summary>拒绝路径：本月人力耗尽 → RejectedInsufficientCapacity。</summary>
+    /// <summary>拒绝路径：本月人力耗尽 → RejectedInsufficientCapacity。
+    /// 契约 v1.5：计数按势力分账，预置玩家势力的已用额度。</summary>
     [Fact]
     public void Resolve_CapacityExhausted_ShouldRejectWithInsufficientCapacity()
     {
         var state = SampleData.CreateWorld();
-        state.ActionsThisMonth = Config.MaxOrdersPerFactionPerMonth;
+        state.ActionsThisMonthByFaction[state.GetPlayerFaction()!.Id] =
+            Config.MaxOrdersPerFactionPerMonth;
 
         var resolver = new RecruitResolver(Config);
         var order = Order.CreatePlayerOrder(ActionType.Recruit, target: 0, amount: 10);

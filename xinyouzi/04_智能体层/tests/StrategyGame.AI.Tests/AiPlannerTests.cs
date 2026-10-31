@@ -353,6 +353,110 @@ public class AiPlannerTests
     }
 
     // =====================================================================
+    //  v1.5 补丁：休整前置 + 删除兵源池出兵门禁
+    //  公共场景：1 城 1 军 + 相邻敌城；势力资源模拟第 8 步补给清池后的规划时点
+    // =====================================================================
+
+    private static WorldState BuildV15GateState(int armySoldiers, int morale, int poolSoldier, bool withArmy = true)
+    {
+        var state = new WorldState();
+        state.Factions.Add(new Faction { Id = 1, IsPlayer = false, Name = "AI", Resources = new Resources { Silver = 5000, Grain = 5000, Soldier = poolSoldier } });
+        state.Cities.Add(new City { Id = 1, OwnerFactionId = 1, Name = "城1", Population = 3000, AdjacentCityIds = new List<int> { 2 } });
+        state.Cities.Add(new City { Id = 2, OwnerFactionId = 2, Name = "敌城", Population = 2000, AdjacentCityIds = new List<int> { 1 } });
+        state.Factions.Add(new Faction { Id = 2, IsPlayer = false, Name = "敌" });
+        if (withArmy)
+        {
+            state.Armies.Add(new Army
+            {
+                Id = 1, OwnerFactionId = 1, OfficerId = -1,
+                Soldiers = armySoldiers, Morale = morale, MoraleMax = 100,
+                PositionCityId = 1, Stance = ArmyStance.Idle, HasRestedThisMonth = false
+            });
+        }
+        return state;
+    }
+
+    [Fact]
+    public void Plan_V15_SoldierPoolCleared_StrongArmyDispatches()
+    {
+        // 场景 1（改动 B 锁）：兵力 6000 充足但池已清零 → 旧代码误判缺兵必走 Econ，现应出兵
+        var state = BuildV15GateState(armySoldiers: 6000, morale: 80, poolSoldier: 0);
+        var planner = new AiFactionPlanner(_config, _rng);
+        var orders = planner.Plan(state, 1);
+
+        var dispatches = orders.Where(o => o.Action == ActionType.Dispatch).ToList();
+        Assert.Single(dispatches);
+        Assert.Equal(2, dispatches[0].TargetId);          // TargetId = 相邻敌城
+        Assert.Equal(1, dispatches[0].SecondaryTargetId); // SecondaryTargetId = 出发城
+    }
+
+    [Fact]
+    public void Plan_V15_LowMorale_RestFirst_OnlyRest()
+    {
+        // 场景 2（改动 A 锁）：兵力充足但士气 20 < 30 → 第一条且唯一一条是 Rest，不夹杂屯田/征兵/出兵
+        var state = BuildV15GateState(armySoldiers: 6000, morale: 20, poolSoldier: 0);
+        var planner = new AiFactionPlanner(_config, _rng);
+        var orders = planner.Plan(state, 1);
+
+        Assert.Single(orders);
+        Assert.Equal(ActionType.Rest, orders[0].Action);
+        Assert.Equal(1, orders[0].TargetId); // TargetId = 该军 Id
+        Assert.DoesNotContain(orders, o => o.Action == ActionType.Dispatch);
+        Assert.DoesNotContain(orders, o => o.Action == ActionType.Develop);
+        Assert.DoesNotContain(orders, o => o.Action == ActionType.Recruit);
+    }
+
+    [Fact]
+    public void Plan_V15_TinyArmy_NoRestNoDispatch()
+    {
+        // 场景 3：在役 100 < 500、士气 80 → 缺兵走经济；不出 Rest、不出 Dispatch（不锁 Develop 数量）
+        var state = BuildV15GateState(armySoldiers: 100, morale: 80, poolSoldier: 0);
+        var planner = new AiFactionPlanner(_config, _rng);
+        var orders = planner.Plan(state, 1);
+
+        Assert.DoesNotContain(orders, o => o.Action == ActionType.Rest);
+        Assert.DoesNotContain(orders, o => o.Action == ActionType.Dispatch);
+    }
+
+    [Fact]
+    public void Plan_V15_NoArmy_PoolStock_NoRestNoDispatch()
+    {
+        // 场景 4：无任何部队、池有存量（蜀式局面）→ 不出 Rest、不出 Dispatch，经济类与旧逻辑一致
+        var state = BuildV15GateState(armySoldiers: 0, morale: 80, poolSoldier: 3000, withArmy: false);
+        var planner = new AiFactionPlanner(_config, _rng);
+        var orders = planner.Plan(state, 1);
+
+        Assert.DoesNotContain(orders, o => o.Action == ActionType.Rest);
+        Assert.DoesNotContain(orders, o => o.Action == ActionType.Dispatch);
+    }
+
+    [Fact]
+    public void Plan_V15_Deterministic_SameInputSameOrders()
+    {
+        // 收工标准：同输入多次 Plan 结果逐字段相同；多军同低士气时取士气最低、Id 最小者休整
+        var state1 = BuildV15GateState(armySoldiers: 6000, morale: 25, poolSoldier: 0);
+        state1.Armies.Add(new Army { Id = 2, OwnerFactionId = 1, OfficerId = -1, Soldiers = 6000, Morale = 10, MoraleMax = 100, PositionCityId = 1, Stance = ArmyStance.Idle, HasRestedThisMonth = false });
+        var state2 = BuildV15GateState(armySoldiers: 6000, morale: 25, poolSoldier: 0);
+        state2.Armies.Add(new Army { Id = 2, OwnerFactionId = 1, OfficerId = -1, Soldiers = 6000, Morale = 10, MoraleMax = 100, PositionCityId = 1, Stance = ArmyStance.Idle, HasRestedThisMonth = false });
+
+        var orders1 = new AiFactionPlanner(_config, new TestRandom(42)).Plan(state1, 1);
+        var orders2 = new AiFactionPlanner(_config, new TestRandom(42)).Plan(state2, 1);
+
+        Assert.Equal(orders1.Count, orders2.Count);
+        for (int i = 0; i < orders1.Count; i++)
+        {
+            Assert.Equal(orders1[i].Action, orders2[i].Action);
+            Assert.Equal(orders1[i].ActorType, orders2[i].ActorType);
+            Assert.Equal(orders1[i].ActorId, orders2[i].ActorId);
+            Assert.Equal(orders1[i].TargetId, orders2[i].TargetId);
+            Assert.Equal(orders1[i].Amount, orders2[i].Amount);
+            Assert.Equal(orders1[i].SecondaryTargetId, orders2[i].SecondaryTargetId);
+        }
+        var rest = Assert.Single(orders1, o => o.Action == ActionType.Rest);
+        Assert.Equal(2, rest.TargetId); // 两军同体量，士气 10 < 25 → 选士气最低的军 2
+    }
+
+    // =====================================================================
     //  辅助：构建一个富裕的单势力状态
     // =====================================================================
 

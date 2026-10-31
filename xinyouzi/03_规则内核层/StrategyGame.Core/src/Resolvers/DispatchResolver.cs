@@ -112,7 +112,7 @@ public sealed class DispatchResolver : ResolverBase
             return ResolveResultCode.RejectedTargetSieged;
         }
 
-        return ValidateCapacity(state);
+        return ValidateCapacity(state, factionId);
     }
 
     /// <summary>执行出兵与战斗结算。纯函数，不修改 state。</summary>
@@ -432,10 +432,10 @@ public sealed class DispatchResolver : ResolverBase
 
         _ = order;
 
-        // ---- 人力计数 ----
+        // ---- 人力计数（契约 v1.5：按指令发起势力分账，TargetId 即势力 Id）----
         result.WithDelta(
-            DeltaTarget.WorldState, 0, DeltaField.WorldActionsThisMonth,
-            state.ActionsThisMonth, state.ActionsThisMonth + 1);
+            DeltaTarget.Faction, factionId, DeltaField.FactionActionsThisMonth,
+            state.GetActionsThisMonth(factionId), state.GetActionsThisMonth(factionId) + 1);
 
         return result;
     }

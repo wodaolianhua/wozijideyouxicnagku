@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>monarch.glb 预览</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <style>
+    html,body{margin:0;height:100%;background:#11141b;color:#e8e4d8;font-family:"Microsoft YaHei",sans-serif}
+    .wrap{display:flex;flex-direction:column;height:100%}
+    header{padding:12px 16px;background:#0c0f15;border-bottom:1px solid #232a36}
+    header b{color:#c9a44c}
+    model-viewer{flex:1;width:100%;background:radial-gradient(circle at 50% 40%,#1b2230,#0c0f15)}
+    .bar{padding:8px 16px;font-size:13px;color:#9aa3b2;background:#0c0f15}
+    .bar span{color:#c9a44c}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><b>monarch.glb</b> 预览 —— AI 文生 3D 生成的君主（金冠·蓝袍·红披风·权杖）</header>
+    <model-viewer src="monarch.glb" alt="monarch" camera-controls auto-rotate
+      shadow-intensity="1" exposure="1.1" environment-image="neutral"
+      rotation-per-second="30deg" camera-orbit="0deg 82deg 115%">
+      <div slot="poster">加载中…</div>
+    </model-viewer>
+    <div class="bar">指标：AI 生成 · 非代码建模 · Y-up · 底部贴地(y=0) · 高 1.06 · 水平半径 0.39 · 25000 面 · 单网格 · 自包含 GLB · 0.62MB<br>
+      注：颜色是 AI 生成的（蓝袍红披风金冠），<span>不能</span>套用现有"整座染势力色"逻辑；放进游戏需单独加载、保留彩色材质。</div>
+  </div>
+</body>
+</html>

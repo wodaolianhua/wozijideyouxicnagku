@@ -35,7 +35,11 @@ public static class StateSnapshot
         sb.AppendLine($"World.Month={state.Month}");
         sb.AppendLine($"World.Seed={state.Seed}");
         sb.AppendLine($"World.Difficulty={state.Difficulty}");
-        sb.AppendLine($"World.ActionsThisMonth={state.ActionsThisMonth}");
+        // 契约 v1.5：指令额度按势力分账（字典）。按势力 Id 升序逐行打印保证确定性。
+        foreach (var (factionId, actionCount) in state.ActionsThisMonthByFaction.OrderBy(x => x.Key))
+        {
+            sb.AppendLine($"World.ActionsThisMonthByFaction[{factionId}]={actionCount}");
+        }
         sb.AppendLine($"Player.Id={state.Player.Id}");
         sb.AppendLine($"Player.Name={state.Player.Name}");
         sb.AppendLine($"Player.Command={state.Player.Command}");

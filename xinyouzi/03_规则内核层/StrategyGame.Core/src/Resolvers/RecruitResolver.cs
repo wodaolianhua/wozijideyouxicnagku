@@ -69,7 +69,7 @@ public sealed class RecruitResolver : ResolverBase
             return ResolveResultCode.RejectedInvalidTarget;
         }
 
-        var capacity = ValidateCapacity(state);
+        var capacity = ValidateCapacity(state, factionId);
         if (capacity != ResolveResultCode.Success)
         {
             return capacity;
@@ -119,8 +119,8 @@ public sealed class RecruitResolver : ResolverBase
                 DeltaTarget.Faction, factionId, DeltaField.FactionSoldier,
                 faction.Resources.Soldier, faction.Resources.Soldier + recruitCount)
             .WithDelta(
-                DeltaTarget.WorldState, 0, DeltaField.WorldActionsThisMonth,
-                state.ActionsThisMonth, state.ActionsThisMonth + 1)
+                DeltaTarget.Faction, factionId, DeltaField.FactionActionsThisMonth,
+                state.GetActionsThisMonth(factionId), state.GetActionsThisMonth(factionId) + 1)
             .WithEvent(
                 EventCategory.Economy,
                 EventKeys.Recruit,
