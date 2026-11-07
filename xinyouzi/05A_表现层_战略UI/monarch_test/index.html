@@ -24,6 +24,7 @@
     <button data-a="idle" class="on">待机</button>
     <button data-a="wave">招手</button>
     <button data-a="walk">走路(原地)</button>
+    <button data-a="patrol">巡逻(沿路)</button>
     <button data-a="stop">静止</button>
   </div>
 </div>
@@ -67,14 +68,25 @@ const ground = new THREE.Mesh(new THREE.CircleGeometry(6, 48),
   new THREE.MeshStandardMaterial({color:0x1a2230, roughness:1}));
 ground.rotation.x = -Math.PI/2; scene.add(ground);
 
+// ---- 巡逻路径（铺路验证用：单位沿一条路来回走）----
+const PATH_A = new THREE.Vector3(0, -3.4, 0.04);
+const PATH_B = new THREE.Vector3(0,  3.4, 0.04);
+{
+  const g = new THREE.BufferGeometry().setFromPoints([PATH_A, PATH_B]);
+  const m = new THREE.LineDashedMaterial({ color:0x4aa3ff, dashSize:0.28, gapSize:0.16 });
+  const ln = new THREE.Line(g, m); ln.computeLineDistances(); scene.add(ln);
+}
+let patrolDir = 1, patrolFrac = 0;
+
 // ---- 加载 rigged glb ----
 let action = 'idle';
-let skinned = null, skeleton = null, modelGroup = null, baseY = 0;
+let skinned = null, skeleton = null, modelGroup = null, baseY = 0, uprightRotX = 0;
 const bone = {};
 const BONE_NAMES = ['Root','Hips','Spine','Chest','Neck','Head','Arm.L','Arm.R','Leg.L','Leg.R'];
+const RIG_VERSION = 6;   // 绑骨版本，加载完显示在日志里，用来确认吃到了最新 glb
 const X_AXIS = new THREE.Vector3(1,0,0), Y_AXIS = new THREE.Vector3(0,1,0), Z_AXIS = new THREE.Vector3(0,0,1);
 
-new GLTFLoader().load('./monarch_rigged.glb', (gltf) => {
+new GLTFLoader().load('./monarch_rigged.glb?v=6', (gltf) => {
   const root = gltf.scene;
   modelGroup = new THREE.Group();
   modelGroup.add(root);
@@ -84,22 +96,32 @@ new GLTFLoader().load('./monarch_rigged.glb', (gltf) => {
   root.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
   if (!skinned) { log('⚠️ 没找到 SkinnedMesh，绑定可能失败'); return; }
   skeleton = skinned.skeleton;
-  for (const n of BONE_NAMES) bone[n] = skeleton.bones.find(b => b.name === n) || null;
+  const allNames = skeleton.bones.map(b => b.name);
+  const norm = s => s.replace(/[._\s]/g,'').toLowerCase();
+  const byNorm = {};
+  skeleton.bones.forEach(b => { byNorm[norm(b.name)] = b; });
+  for (const n of BONE_NAMES) {
+    bone[n] = skeleton.bones.find(b => b.name === n) || byNorm[norm(n)] || null;
+  }
 
   // 自动扶正：若模型是“躺”着的（高度不在 Y 上），转一下
   let box = new THREE.Box3().setFromObject(modelGroup);
   const size = new THREE.Vector3(); box.getSize(size);
   if (size.y < size.z * 0.6 && size.y < size.x * 0.6) {
-    modelGroup.rotation.x = -Math.PI/2;            // 立起来
+    modelGroup.rotation.x = -Math.PI/2; uprightRotX = -Math.PI/2;  // 立起来
     box = new THREE.Box3().setFromObject(modelGroup);
   }
   box.getSize(size);
   baseY = -box.min.y;                              // 脚踩在 y=0
   modelGroup.position.y = baseY;
 
+  const found = BONE_NAMES.filter(n => bone[n]);
+  const missing = BONE_NAMES.filter(n => !bone[n]);
   document.getElementById('bones').textContent =
-    '骨骼(' + skeleton.bones.length + ')：' + skeleton.bones.map(b=>b.name).join(' ');
-  log('✅ 加载完成  尺寸: ' + size.x.toFixed(2)+' × '+size.y.toFixed(2)+' × '+size.z.toFixed(2));
+    '骨骼(' + skeleton.bones.length + ')：' + allNames.join(' ');
+  log('✅ 加载完成  尺寸: ' + size.x.toFixed(2)+' × '+size.y.toFixed(2)+' × '+size.z.toFixed(2)
+      + '\n[RIG v' + RIG_VERSION + '] 找到 ' + found.length + '/' + BONE_NAMES.length + '  缺失: ' + (missing.join(',') || '无')
+      + '\n全部骨名: ' + allNames.join(','));
 }, undefined, (e) => log('❌ 加载失败: ' + e.message));
 
 // ---- 动作按钮 ----
@@ -109,30 +131,66 @@ document.getElementById('btns').addEventListener('click', e => {
   document.querySelectorAll('#btns button').forEach(x=>x.classList.toggle('on', x===b));
 });
 
+// ---- 走路循环（原地 / 巡逻共用）----
+function applyWalk(t) {
+  const ph = t * 5;                       // 步相
+  const step = Math.sin(ph) * 0.8;        // 步幅
+  // 腿（靴子藏在袍里，摆幅小但真实）
+  if (bone['Leg.L']) bone['Leg.L'].rotateOnWorldAxis(X_AXIS,  step);
+  if (bone['Leg.R']) bone['Leg.R'].rotateOnWorldAxis(X_AXIS, -step);
+  // 摆臂（长袍角色最可见的走路信号）
+  if (bone['Arm.L']) bone['Arm.L'].rotateOnWorldAxis(X_AXIS, -step*0.8);
+  if (bone['Arm.R']) bone['Arm.R'].rotateOnWorldAxis(X_AXIS,  step*0.8);
+  // 盆骨左右微晃 -> 袍子跟着自然摆（袍身绑在 Hips/Spine 上）
+  if (bone.Hips)  bone.Hips.rotateOnWorldAxis(Z_AXIS, Math.sin(ph)*0.06);
+  // 躯干微扭 + 轻微前倾
+  if (bone.Spine) { bone.Spine.rotateOnWorldAxis(Y_AXIS,  Math.sin(ph)*0.05);
+                    bone.Spine.rotateOnWorldAxis(X_AXIS,  0.04); }
+  if (bone.Chest) bone.Chest.rotateOnWorldAxis(Y_AXIS, -Math.sin(ph)*0.04);
+  if (bone.Head)  bone.Head.rotateOnWorldAxis(Y_AXIS, Math.sin(ph*0.5)*0.06);
+}
+
 // ---- 渲染循环：直接驱动骨骼 ----
 const clock = new THREE.Clock();
 function tick() {
+  const dt = clock.getDelta();
   const t = clock.getElapsedTime();
-  // 每帧先把用到的骨头归零，再按动作施加旋转
-  for (const n of BONE_NAMES) if (bone[n]) bone[n].rotation.set(0,0,0);
-
-  if (skinned) {
-    if (action === 'idle') {
-      if (bone.Chest) bone.Chest.rotateOnWorldAxis(X_AXIS, Math.sin(t*1.5)*0.04);
-      if (bone.Head)  bone.Head.rotateOnWorldAxis(Y_AXIS, Math.sin(t*0.8)*0.15);
-    } else if (action === 'wave') {
-      if (bone.ArmL) { bone.ArmL.rotateOnWorldAxis(Z_AXIS, -1.0); bone.ArmL.rotateOnWorldAxis(X_AXIS, Math.sin(t*6)*0.4); }
-      if (bone.Chest) bone.Chest.rotateOnWorldAxis(X_AXIS, Math.sin(t*1.5)*0.03);
-    } else if (action === 'walk') {
-      const s = Math.sin(t*4)*0.5;
-      if (bone.LegL) bone.LegL.rotateOnWorldAxis(X_AXIS,  s);
-      if (bone.LegR) bone.LegR.rotateOnWorldAxis(X_AXIS, -s);
-      if (bone.ArmL) bone.ArmL.rotateOnWorldAxis(X_AXIS, -s*0.4);
-      if (bone.ArmR) bone.ArmR.rotateOnWorldAxis(X_AXIS,  s*0.4);
-      if (bone.Chest) bone.Chest.rotateOnWorldAxis(Y_AXIS, Math.sin(t*4)*0.05);
-    }
-    // 'stop'：保持归零（静止 T 姿）
+  // glb 未加载完时跳过，避免 modelGroup 为 null 崩循环
+  if (!modelGroup || !skinned) {
+    controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick); return;
   }
+
+  if (action !== 'patrol') {
+    // 非巡逻：归位到原点、面朝 +Z，再按动作施加旋转
+    modelGroup.position.set(0, baseY, 0);
+    modelGroup.rotation.y = 0;
+    for (const n of BONE_NAMES) if (bone[n]) bone[n].rotation.set(0,0,0);
+    if (skinned) {
+      if (action === 'idle') {
+        if (bone.Chest) bone.Chest.rotateOnWorldAxis(X_AXIS, Math.sin(t*1.5)*0.04);
+        if (bone.Head)  bone.Head.rotateOnWorldAxis(Y_AXIS, Math.sin(t*0.8)*0.15);
+      } else if (action === 'wave') {
+        if (bone['Arm.L']) bone['Arm.L'].rotateOnWorldAxis(X_AXIS, 1.1 + Math.sin(t*6)*0.3);
+        if (bone.Chest) bone.Chest.rotateOnWorldAxis(X_AXIS, Math.sin(t*1.5)*0.03);
+      } else if (action === 'walk') {
+        applyWalk(t);
+        modelGroup.position.y = baseY + Math.abs(Math.sin(t*5))*0.03;  // 踩步起伏
+      }
+      // 'stop'：保持归零（静止 T 姿）
+    }
+  } else {
+    // 巡逻：沿路径来回走（铺路地基）
+    patrolFrac += dt * 0.11 * patrolDir;
+    if (patrolFrac >= 1) { patrolFrac = 1; patrolDir = -1; }
+    if (patrolFrac <= 0) { patrolFrac = 0; patrolDir =  1; }
+    const p = PATH_A.clone().lerp(PATH_B, patrolFrac);
+    modelGroup.position.set(p.x, baseY, p.z);
+    modelGroup.rotation.y = patrolDir > 0 ? 0 : Math.PI;   // 始终面朝前进方向
+    for (const n of BONE_NAMES) if (bone[n]) bone[n].rotation.set(0,0,0);
+    applyWalk(t);
+    modelGroup.position.y = baseY + Math.abs(Math.sin(t*5))*0.02;
+  }
+
   controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(tick);

@@ -1,19 +1,25 @@
 // ============================================================================
 //  Ui/Hud.ts —— DOM 覆盖层：顶栏 / 势力·城池·部队·人才面板 / 军议 / 回合结算 /
-//  交互气泡与摇杆 / 战斗演出字幕 / 游戏终局。
+//  交互气泡与摇杆 / 战斗演出字幕 / 游戏终局 / 快捷键帮助。
 //  铁律：只读 store，只经 OrderSender 下令；不做数值计算、不判合法性。
+//
+//  桌面化（R2）：
+//  · 面板为左侧栏（城池/部队/势力/人才），结算与帮助为居中浮层；非移动端全屏遮罩。
+//  · 全部操作可用鼠标完成；键盘快捷键（空格/回车推进、Esc 关闭、1/2/3 切视角与人才面板、
+//    E 交互、WASD 行走、H 帮助）由 Controls 上报意图 → 本层执行。
 // ============================================================================
 
 import type { GameStateStore } from '../Core/GameStateStore.js';
 import { actionLabel } from '../Core/GameClient.js';
 import type { OrderSender } from '../Core/GameClient.js';
 import type { Controls } from '../Player/Controls.js';
+import type { ShortcutEvent } from '../Player/Controls.js';
 import type { HoverTarget, ViewMode } from '../Scene/WorldScene.js';
 import type { WorldScene } from '../Scene/WorldScene.js';
 import { cityHoverText } from '../Scene/CityMesh.js';
 import { cityPosition } from '../Scene/Adjacency.js';
 import { buildLayout, clearChildren, el, hide, show, type HudLayout } from './Layout.js';
-import { fieldLabel, factionColor, injectGlobalStyle, UI } from './Theme.js';
+import { fieldLabel, factionColor, injectGlobalStyle, injectTouchStyle, UI } from './Theme.js';
 import type {
   Army,
   GameMeta,
@@ -67,12 +73,16 @@ export interface HudDeps {
   onNewGame(): void;
 }
 
+type PanelTarget = { kind: 'city' | 'army' | 'faction' | 'officers'; id: number };
+
 export class Hud {
   private layout: HudLayout;
-  private openPanel: { kind: 'city' | 'army' | 'faction' | 'officers'; id: number } | null = null;
+  private openPanel: PanelTarget | null = null;
   private onInteractRequest: (() => void) | null = null;
   private lastMouse = { x: 0, y: 0 };
   private ticking = false;
+  /** 点击选中的实体（信息卡常驻，直到再次点空或 Esc） */
+  private pinnedHover: { kind: 'city' | 'army'; id: number } | null = null;
 
   constructor(private readonly deps: HudDeps) {
     injectGlobalStyle();
@@ -81,23 +91,31 @@ export class Hud {
     // 顶栏按钮
     this.layout.btnGod.addEventListener('click', () => deps.onSetViewMode('god'));
     this.layout.btnField.addEventListener('click', () => deps.onSetViewMode('field'));
-    this.layout.btnTick.addEventListener('click', () => {
-      if (!this.ticking) {
-        this.ticking = true;
-        deps.onTick();
-        window.setTimeout(() => (this.ticking = false), 800);
-      }
-    });
+    this.layout.btnTick.addEventListener('click', () => this.requestTick());
     this.layout.btnNewGame.addEventListener('click', () => deps.onNewGame());
+    this.layout.btnHelp.addEventListener('click', () => this.toggleHelp());
     this.layout.btnInteract.addEventListener('click', () => this.onInteractRequest?.());
 
-    // 悬停卡跟随
+    // 快捷键意图（由 Controls 上报）
+    deps.controls.onShortcut((ev) => this.handleShortcut(ev));
+
+    // 鼠标点过按钮后主动失焦：避免「空格推进下月」被上一次点击的按钮截胡
+    this.layout.root.addEventListener('click', (ev) => {
+      const t = ev.target;
+      if (t instanceof HTMLElement) {
+        const btn = t.closest('button');
+        if (btn) {
+          btn.blur();
+        }
+      }
+    });
+
+    // 悬停卡跟随（贴边时收进视口内，避免被窗口右缘裁掉）
     window.addEventListener('pointermove', (ev) => {
       this.lastMouse.x = ev.clientX;
       this.lastMouse.y = ev.clientY;
       if (!this.layout.hoverCard.classList.contains('sg-hidden')) {
-        this.layout.hoverCard.style.left = `${ev.clientX}px`;
-        this.layout.hoverCard.style.top = `${ev.clientY}px`;
+        this.positionHoverCard(ev.clientX, ev.clientY);
       }
     });
 
@@ -107,6 +125,141 @@ export class Hud {
 
   setInteractHandler(fn: () => void): void {
     this.onInteractRequest = fn;
+  }
+
+  // ==========================================================================
+  //  快捷键
+  // ==========================================================================
+  private handleShortcut(ev: ShortcutEvent): void {
+    switch (ev.intent) {
+      case 'tick': {
+        // 浮层打开时，空格/回车 = 关闭浮层（等价于点「继续」），不再推进月份
+        if (this.overlayCount() > 0) {
+          this.closeTopOverlay();
+          return;
+        }
+        this.requestTick();
+        return;
+      }
+      case 'escape': {
+        if (this.overlayCount() > 0) {
+          this.closeTopOverlay();
+          return;
+        }
+        if (this.openPanel) {
+          this.closeSide();
+          return;
+        }
+        if (this.pinnedHover) {
+          this.unpinHoverCard();
+          return;
+        }
+        return;
+      }
+      case 'viewGod':
+        this.deps.onSetViewMode('god');
+        return;
+      case 'viewField':
+        this.deps.onSetViewMode('field');
+        return;
+      case 'officers':
+        if (this.overlayCount() > 0) {
+          this.closeTopOverlay();
+        }
+        this.openOfficersPanel();
+        return;
+      case 'help':
+        this.toggleHelp();
+        return;
+    }
+  }
+
+  /** 推进下月（按钮与快捷键共用同一入口） */
+  private requestTick(): void {
+    if (this.ticking) {
+      return;
+    }
+    if (this.deps.store.meta?.isFinished) {
+      this.toast('本局已终局，无法再推进。', 'error');
+      return;
+    }
+    this.ticking = true;
+    this.deps.onTick();
+    window.setTimeout(() => (this.ticking = false), 800);
+  }
+
+  // ==========================================================================
+  //  浮层（结算 / 终局 / 帮助）
+  // ==========================================================================
+  private overlayCount(): number {
+    return this.layout.overlayLayer.childElementCount;
+  }
+
+  /** 关闭最上层浮层（Esc / 空格） */
+  private closeTopOverlay(): void {
+    const layer = this.layout.overlayLayer;
+    if (layer.lastElementChild) {
+      layer.lastElementChild.remove();
+    }
+  }
+
+  private toggleHelp(): void {
+    if (this.overlayCount() > 0 && this.layout.overlayLayer.lastElementChild?.classList.contains('sg-help-overlay')) {
+      this.closeTopOverlay();
+      return;
+    }
+    this.showHelp();
+  }
+
+  /** 快捷键 / 鼠标操作说明（桌面浮层） */
+  private showHelp(): void {
+    const overlay = el('div', 'sg-overlay sg-help-overlay');
+    const modal = el('div', 'sg-modal sg-panel');
+    modal.appendChild(el('h2', undefined, '操作说明 · 鼠标 + 键盘'));
+
+    const grid = el('div', 'sg-help-grid');
+    const row = (keys: string, desc: string, note?: string): void => {
+      const k = el('span', 'sg-kbd', keys);
+      const d = el('span', 'sg-help-desc', desc);
+      if (note) {
+        d.appendChild(el('span', 'sg-help-note', `　${note}`));
+      }
+      grid.append(k, d);
+    };
+    const group = (title: string): void => {
+      grid.appendChild(el('div', 'sg-help-group', title));
+    };
+
+    group('上帝视角（战略地图）');
+    row('左键单击', '选中城池 / 军团：打开侧栏信息与指令面板，弹出信息卡');
+    row('左键拖拽', '旋转镜头');
+    row('滚轮', '缩放');
+    row('右键拖拽', '平移');
+    row('1', '切到上帝视角');
+
+    group('亲征视角（第一/三人称行走）');
+    row('W A S D / ↑↓←→', '君主行走');
+    row('左键拖拽', '转视角');
+    row('滚轮', '拉近 / 拉远（拉到底切第一人称）');
+    row('E / F', '与身旁的城池、军团交互（打开侧栏）');
+    row('2', '切到亲征视角');
+
+    group('全局');
+    row('空格 / 回车', '推进下月（结算本月指令）');
+    row('3', '打开人才任命面板');
+    row('Esc', '关闭当前面板 / 浮层');
+    row('H', '打开 / 关闭本说明');
+
+    modal.appendChild(grid);
+
+    const foot = el('div', 'sg-modal-foot');
+    const close = el('button', 'sg-btn sg-primary', '知道了');
+    close.addEventListener('click', () => overlay.remove());
+    foot.appendChild(close);
+    modal.appendChild(foot);
+
+    overlay.appendChild(modal);
+    this.layout.overlayLayer.appendChild(overlay);
   }
 
   // ==========================================================================
@@ -145,9 +298,19 @@ export class Hud {
   setViewModeUI(mode: ViewMode): void {
     this.layout.btnGod.classList.toggle('sg-active', mode === 'god');
     this.layout.btnField.classList.toggle('sg-active', mode === 'field');
+    const touch = this.deps.controls.touchUi;
     if (mode === 'field') {
-      show(this.layout.joy);
+      // 虚拟摇杆只在触摸设备出现；桌面端不显示、不拦截鼠标
+      if (touch) {
+        injectTouchStyle();
+        show(this.layout.joy);
+      } else {
+        hide(this.layout.joy);
+      }
       show(this.layout.fieldCorner);
+      this.layout.fieldTip.textContent = touch
+        ? '拖拽转视角 · 滚轮缩放 · 摇杆行走 · 点「交互」'
+        : '左键拖拽转视角 · 滚轮缩放 · WASD 行走 · E 交互';
     } else {
       hide(this.layout.joy);
       hide(this.layout.fieldCorner);
@@ -174,29 +337,49 @@ export class Hud {
     this.layout.btnInteract.disabled = !enabled;
   }
 
+  /** 点击选中后把信息卡钉住（离开对象仍可见，直到点空 / Esc） */
+  pinHoverCard(target: { kind: 'city' | 'army'; id: number }): void {
+    this.pinnedHover = target;
+    this.showHoverCard(target);
+  }
+
+  unpinHoverCard(): void {
+    this.pinnedHover = null;
+    hide(this.layout.hoverCard);
+  }
+
   showHoverCard(target: { kind: 'city' | 'army'; id: number } | null): void {
     const card = this.layout.hoverCard;
-    if (!target || !this.deps.store.ready) {
+    // 指针离开对象时，若有钉住的信息卡则继续显示
+    const t = target ?? this.pinnedHover;
+    if (!t || !this.deps.store.ready) {
       hide(card);
       return;
     }
     const state = this.deps.store.state;
     let html = '';
-    if (target.kind === 'city') {
-      const city = this.deps.store.city(target.id);
+    if (t.kind === 'city') {
+      const city = this.deps.store.city(t.id);
       if (!city) {
         hide(card);
         return;
       }
       html = cityHoverText(city, state);
     } else {
-      const army = this.deps.store.army(target.id);
+      const army = this.deps.store.army(t.id);
       if (!army) {
         hide(card);
         return;
       }
       const owner = state.factions.find((f) => f.id === army.ownerFactionId);
-      const commander = army.officerId >= 0 ? this.deps.store.officer(army.officerId)?.name ?? `#${army.officerId}` : army.ownerFactionId === (this.deps.store.playerFaction?.id ?? -1) && this.deps.store.state.player.isPersonallyCommanding && this.deps.store.state.player.commandingArmyId === army.id ? '君主亲征' : '无';
+      const commander =
+        army.officerId >= 0
+          ? this.deps.store.officer(army.officerId)?.name ?? `#${army.officerId}`
+          : army.ownerFactionId === (this.deps.store.playerFaction?.id ?? -1) &&
+              this.deps.store.state.player.isPersonallyCommanding &&
+              this.deps.store.state.player.commandingArmyId === army.id
+            ? '君主亲征'
+            : '无';
       html = [
         `<b>军团 #${army.id}</b>（${owner?.name ?? '无主'}）`,
         `兵力 ${army.soldiers} · 士气 ${army.morale}/${army.moraleMax}`,
@@ -205,9 +388,19 @@ export class Hud {
       ].join('<br/>');
     }
     card.innerHTML = html;
-    card.style.left = `${this.lastMouse.x}px`;
-    card.style.top = `${this.lastMouse.y}px`;
+    this.positionHoverCard(this.lastMouse.x, this.lastMouse.y);
     show(card);
+  }
+
+  /** 信息卡定位：贴屏幕右缘 / 下缘时收进视口（桌面大屏 + 侧栏布局下必做） */
+  private positionHoverCard(x: number, y: number): void {
+    const card = this.layout.hoverCard;
+    const w = card.offsetWidth || 220;
+    const h = card.offsetHeight || 60;
+    const maxX = Math.max(8, window.innerWidth - w - 20);
+    const maxY = Math.max(44, window.innerHeight - h - 16);
+    card.style.left = `${Math.max(8, Math.min(x, maxX))}px`;
+    card.style.top = `${Math.max(44, Math.min(y, maxY))}px`;
   }
 
   // ==========================================================================
@@ -291,6 +484,7 @@ export class Hud {
     const h = el('h3');
     const t = el('span', undefined, title);
     const close = el('span', 'sg-close', '✕');
+    close.title = '关闭（Esc）';
     close.addEventListener('click', onClose);
     h.append(t, close);
     card.appendChild(h);
@@ -340,8 +534,10 @@ export class Hud {
         input.type = 'number';
         input.value = String(def);
         input.min = '0';
+        input.title = `${label}数量`;
         row.appendChild(input);
         const btn = el('button', 'sg-btn', '下令');
+        btn.title = `下达「${label}」指令`;
         btn.addEventListener('click', () => {
           const amount = Math.max(0, Math.floor(Number(input.value) || 0));
           void this.deps.sender.send({ action, targetId: city.id, amount });
@@ -370,6 +566,7 @@ export class Hud {
       }
 
       const appoint = el('button', 'sg-btn', '人才任命 / 换任 →');
+      appoint.title = '打开人才任命面板（快捷键 3）';
       appoint.addEventListener('click', () => this.openOfficersPanel());
       actions.appendChild(appoint);
 
@@ -423,6 +620,7 @@ export class Hud {
       actions.appendChild(rest);
 
       const march = el('button', 'sg-btn sg-primary', '军议 · 进军');
+      march.title = '选择目标城 → 地面升起行军箭头 → 下令进军';
       march.addEventListener('click', () => this.renderMarchFlow(army, card));
       actions.appendChild(march);
 
@@ -444,7 +642,7 @@ export class Hud {
       return;
     }
     const flow = el('div', 'sg-march-flow');
-    (flow as HTMLElement).style.cssText = `margin-top:8px;padding:8px;border:1px solid ${UI.borderGold};border-radius:8px;`;
+    (flow as HTMLElement).style.cssText = `margin-top:10px;padding:10px;border:1px solid ${UI.borderGold};border-radius:8px;`;
 
     const state = this.deps.store.state;
     const here = this.deps.store.city(army.positionCityId);
@@ -477,6 +675,7 @@ export class Hud {
     amount.type = 'number';
     amount.value = String(army.soldiers);
     amount.min = '1';
+    amount.title = '出征兵力';
     const amountRow = el('div', 'sg-row');
     amountRow.appendChild(el('span', 'sg-grow', '兵力'));
     amountRow.appendChild(amount);
@@ -535,6 +734,7 @@ export class Hud {
     for (const c of cities) {
       const b = el('button', 'sg-mini', c.name) as HTMLButtonElement;
       b.style.borderColor = factionColor(f.id);
+      b.title = `镜头飞向 ${c.name}`;
       b.addEventListener('click', () => {
         this.deps.scene.focusCity(c.id);
         this.deps.scene.setSelectedCity(c.id);
@@ -557,7 +757,7 @@ export class Hud {
     reward.disabled = true;
     reward.title = 'ActionType.Reward=101 为 P1 保留位，Resolver 未实现（R6 本轮不做）';
     const headRow = el('div', 'sg-row');
-    headRow.appendChild(el('span', 'sg-grow', '共 ' + state.officers.length + ' 人'));
+    headRow.appendChild(el('span', 'sg-grow', `共 ${state.officers.length} 人`));
     headRow.appendChild(reward);
     card.appendChild(headRow);
 
@@ -614,7 +814,7 @@ export class Hud {
       return;
     }
     const wrap = el('div', 'sg-assign');
-    (wrap as HTMLElement).style.cssText = 'display:flex;gap:4px;align-items:center;margin-top:4px;';
+    (wrap as HTMLElement).style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;';
     const select = el('select', 'sg-select') as HTMLSelectElement;
     const cities = this.deps.store.playerCities;
     for (const c of cities) {
@@ -664,7 +864,7 @@ export class Hud {
       const details = el('details');
       details.appendChild(el('summary', undefined, `全部指令结算（含 AI ${aiResults.length} 条）`));
       const box = el('div');
-      (box as HTMLElement).style.marginTop = '6px';
+      (box as HTMLElement).style.marginTop = '8px';
       for (const r of aiResults) {
         box.appendChild(this.buildResultItem(r, pfId));
       }
@@ -698,12 +898,15 @@ export class Hud {
     const foot = el('div', 'sg-modal-foot');
     const pending = tick.state.pendingOrders.length;
     const cont = el('button', 'sg-btn sg-primary', pending > 0 ? `继续（下月待结算 ${pending} 条）` : '继续');
+    cont.title = '关闭结算面板（空格 / 回车 / Esc）';
     cont.addEventListener('click', () => overlay.remove());
-    foot.appendChild(cont);
+    foot.append(cont);
     modal.appendChild(foot);
 
     overlay.appendChild(modal);
     this.layout.overlayLayer.appendChild(overlay);
+    // 焦点给「继续」：空格 / 回车直接关闭结算面板，不误触发全局「推进下月」
+    cont.focus();
   }
 
   private buildResultItem(r: SettledOrder, pfId: number): HTMLElement {
@@ -755,9 +958,9 @@ export class Hud {
         : d.targetType === 'Army'
           ? `军团 #${d.targetId}`
           : d.targetType === 'Faction'
-            ? this.deps.store.faction(d.targetId)?.name ?? `势力 ${d.targetId}`
+            ? this.deps.store.faction(d.targetId)?.name ?? `势力 #${d.targetId}`
             : d.targetType === 'Officer'
-              ? this.deps.store.officer(d.targetId)?.name ?? `人才 ${d.targetId}`
+              ? this.deps.store.officer(d.targetId)?.name ?? `人才 #${d.targetId}`
               : d.targetType;
     return `${target} · ${fieldLabel(d.field)}：${d.oldValue} → ${d.newValue}`;
   }
@@ -782,6 +985,7 @@ export class Hud {
     modal.appendChild(foot);
     overlay.appendChild(modal);
     this.layout.overlayLayer.appendChild(overlay);
+    restart.focus();
   }
 
   // ==========================================================================
@@ -807,7 +1011,7 @@ export class Hud {
   }
 
   // ==========================================================================
-  //  虚拟摇杆（触屏 / 鼠标均可拖）
+  //  虚拟摇杆（仅触摸设备出现；桌面端不显示、不拦截鼠标）
   // ==========================================================================
   private bindJoystick(): void {
     const joy = this.layout.joy;
@@ -815,7 +1019,7 @@ export class Hud {
     let active = false;
     let cx = 0;
     let cy = 0;
-    const R = 44;
+    const R = 48;
 
     const reset = (): void => {
       active = false;

@@ -1,87 +1,91 @@
-import bpy
-import os
-from mathutils import Vector
+import bpy, mathutils
 
-SRC = r"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/monarch.glb"
-OUT_DIR = r"E:/xinyouzi/05A_表现层_战略UI/city_castle_build"
-BLEND = os.path.join(OUT_DIR, "monarch_rigged.blend")
-GLB = os.path.join(OUT_DIR, "monarch_rigged.glb")
+# ---- 1. 清理 + 导入 ----
+for o in list(bpy.data.objects):
+    bpy.data.objects.remove(o, do_unlink=True)
+bpy.ops.import_scene.gltf(filepath="monarch.glb")
 
-bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.gltf(filepath=SRC)
-mesh = [o for o in bpy.data.objects if o.type == 'MESH'][0]
+mesh = next(o for o in bpy.data.objects if o.type == 'MESH')
+# 把网格变换烘焙到顶点，保证后面读到的坐标是世界坐标
+bpy.context.view_layer.objects.active = mesh
+bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
-# ---- 建骨架（按实测坐标摆：X=左右, Y=前后, Z=上；腿在 x≈±0.20 分叉）----
-arm_data = bpy.data.armatures.new("Armature")
-arm_obj = bpy.data.objects.new("Armature", arm_data)
+# ---- 2. 建骨架（模型真实竖直方向 = Z）----
+arm = bpy.data.armatures.new('Armature')
+arm_obj = bpy.data.objects.new('Armature', arm)
 bpy.context.scene.collection.objects.link(arm_obj)
 bpy.context.view_layer.objects.active = arm_obj
 bpy.ops.object.mode_set(mode='EDIT')
-eb = arm_obj.data.edit_bones
 
-def bone(name, head, tail, parent=None):
-    b = eb.new(name)
-    b.head = Vector(head); b.tail = Vector(tail)
-    if parent: b.parent = eb[parent]
+def bone(name, head, tail):
+    b = arm.edit_bones.new(name)
+    b.head = mathutils.Vector(head)
+    b.tail = mathutils.Vector(tail)
+    b.use_deform = True
+    return b
 
-bone('Root',  (0, 0, 0),       (0, 0, 0.06))
-bone('Hips',  (0, 0, 0.50),    (0, 0, 0.58), 'Root')
-bone('Spine', (0, 0, 0.58),    (0, 0, 0.72), 'Hips')
-bone('Chest', (0, 0, 0.72),    (0, 0, 0.85), 'Spine')
-bone('Neck',  (0, 0, 0.85),    (0, 0, 0.92), 'Chest')
-bone('Head',  (0, 0, 0.92),    (0, 0, 1.06), 'Neck')
-bone('Arm.L', (-0.20, 0, 0.84), (-0.22, 0.06, 0.62), 'Chest')
-bone('Arm.R', (0.20, 0, 0.84),  (0.22, 0.06, 0.62), 'Chest')
-bone('Leg.L', (-0.20, 0, 0.50), (-0.21, 0, 0.02), 'Hips')
-bone('Leg.R', (0.20, 0, 0.50),  (0.21, 0, 0.02), 'Hips')
+bone('Root',  ( 0.00, 0, 0.00), ( 0.00, 0, 0.10))
+bone('Hips',  ( 0.00, 0, 0.45), ( 0.00, 0, 0.60))
+bone('Spine', ( 0.00, 0, 0.65), ( 0.00, 0, 0.78))
+bone('Chest', ( 0.00, 0, 0.85), ( 0.00, 0, 0.98))
+bone('Neck',  ( 0.00, 0, 0.99), ( 0.00, 0, 1.03))
+bone('Head',  ( 0.00, 0, 1.08), ( 0.00, 0, 1.22))
+bone('Arm.L', (-0.22, 0, 0.82), (-0.22, 0, 0.98))   # 尾巴朝上
+bone('Arm.R', ( 0.22, 0, 0.82), ( 0.22, 0, 0.98))
+bone('Leg.L', (-0.18, 0, 0.12), (-0.18, 0, 0.00))   # 尾巴朝下
+bone('Leg.R', ( 0.18, 0, 0.12), ( 0.18, 0, 0.00))
+
 bpy.ops.object.mode_set(mode='OBJECT')
 
-# ---- 手动按距离刷权重（自动权重对此网格静默失败）----
-while mesh.vertex_groups:
-    mesh.vertex_groups.remove(mesh.vertex_groups[0])
+# ---- 3. 按 区域限定的软权重（关键：袍身中央只跟 Hips/Spine，绝不绑给腿）----
+# 骨头的 head 世界坐标（与上面 bone() 一致）
+HEADS = {
+    'Root':(0,0,0), 'Hips':(0,0,0.45), 'Spine':(0,0,0.65), 'Chest':(0,0,0.85),
+    'Neck':(0,0,0.99), 'Head':(0,0,1.08), 'Arm.L':(-0.22,0,0.82), 'Arm.R':(0.22,0,0.82),
+    'Leg.L':(-0.18,0,0.12), 'Leg.R':(0.18,0,0.12),
+}
 
-mw = mesh.matrix_world
-aw = arm_obj.matrix_world
-bones = []
-for b in arm_obj.data.bones:
-    bones.append((b.name, aw @ b.head_local, aw @ b.tail_local))
+def candidates(co):
+    x, y, z = co.x, co.y, co.z
+    # 胳膊：上半身、向两侧伸出（伸到 x≈±0.27）
+    if 0.50 <= z <= 0.96 and abs(x) > 0.15:
+        return ('Arm.L' if x < 0 else 'Arm.R', 'Spine')
+    # 下半身：只有最底、最窄的靴子才绑腿；整片袍摆（含喇叭外缘）全归盆骨/脊柱
+    if z < 0.16 and abs(x) > 0.16:
+        return ('Leg.L' if x < 0 else 'Leg.R', 'Hips')
+    if z < 0.34:
+        return ('Hips', 'Spine')           # 袍身中央 + 喇叭下摆：只跟 Hips/Spine，永不绑腿
+    # 躯干竖柱
+    if z >= 0.88:
+        return (('Head' if (abs(x) < 0.13 and abs(y) < 0.13) else 'Neck'), 'Chest')
+    if z >= 0.72: return ('Chest', 'Spine')
+    if z >= 0.50: return ('Spine', 'Chest')
+    return ('Hips', 'Spine')
 
-def dist_seg(p, a, b):
-    ab = b - a
-    denom = ab.dot(ab)
-    if denom < 1e-9:
-        return (p - a).length
-    t = max(0.0, min(1.0, (p - a).dot(ab) / denom))
-    return (p - (a + t * ab)).length
-
-vgs = {name: mesh.vertex_groups.new(name=name) for name, _, _ in bones}
-TOPN = 3
+import math
+groups = {n: mesh.vertex_groups.new(name=n) for n in HEADS}
+counts = {n: 0 for n in groups}
 for v in mesh.data.vertices:
-    p = mw @ v.co
-    ds = sorted(((n, dist_seg(p, h, t)) for n, h, t in bones), key=lambda x: x[1])[:TOPN]
-    raw = [(n, 1.0 / (d + 0.05)) for n, d in ds]
-    s = sum(w for _, w in raw)
-    for n, w in raw:
-        vgs[n].add([v.index], w / s, 'REPLACE')
+    c = v.co
+    a, b = candidates(c)
+    ha, hb = HEADS[a], HEADS[b]
+    da = math.hypot(c.x-ha[0], c.y-ha[1], c.z-ha[2]) or 1e-4
+    db = math.hypot(c.x-hb[0], c.y-hb[1], c.z-hb[2]) or 1e-4
+    wa, wb = 1.0/da, 1.0/db
+    s = wa + wb
+    groups[a].add([v.index], wa/s, 'REPLACE')
+    groups[b].add([v.index], wb/s, 'REPLACE')
+    counts[a] += 1; counts[b] += 1
 
+print("weights:", {k: counts[k] for k in counts})
+
+# ---- 4. 挂 Armature 修改器（导出 glb skin 必需）----
+mod = mesh.modifiers.new('Armature', 'ARMATURE')
+mod.object = arm_obj
 mesh.parent = arm_obj
-if not any(m.type == 'ARMATURE' for m in mesh.modifiers):
-    mod = mesh.modifiers.new("Armature", 'ARMATURE')
-    mod.object = arm_obj
 
-# 权重校验
-grp_sums = {g.index: 0.0 for g in mesh.vertex_groups}
-for v in mesh.data.vertices:
-    for g in v.groups:
-        grp_sums[g.group] += g.weight
-print("== 各骨骼权重总和 ==")
-for g in mesh.vertex_groups:
-    cnt = sum(1 for v in mesh.data.vertices if any(x.group == g.index for x in v.groups))
-    print("  %-8s total=%.1f verts=%d" % (g.name, grp_sums[g.index], cnt))
-
-bpy.ops.wm.save_as_mainfile(filepath=BLEND)
-bpy.ops.export_scene.gltf(filepath=GLB, export_format='GLB',
-                          export_animations=False, export_skins=True)
-print("SAVED:", BLEND)
-print("EXPORTED:", GLB)
+# ---- 5. 保存 + 导出 ----
+bpy.ops.wm.save_as_mainfile(filepath="monarch_rigged.blend")
+bpy.ops.export_scene.gltf(filepath="monarch_rigged.glb", export_format='GLB')
+print("SAVED blend + EXPORTED glb")
 print("DONE")

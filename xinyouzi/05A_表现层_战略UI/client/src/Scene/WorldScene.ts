@@ -224,8 +224,14 @@ export class WorldScene {
       if ((t?.id ?? null) !== (this.hover?.id ?? null) || t?.kind !== this.hover?.kind) {
         this.hover = t;
         this.callbacks.onHover(t);
+        // 指针反馈：可点击对象（城池 / 军团）悬停时改为 pointer，提升桌面可发现性
         dom.style.cursor = t ? 'pointer' : 'default';
       }
+    });
+    dom.addEventListener('pointerleave', () => {
+      this.hover = null;
+      this.callbacks.onHover(null);
+      dom.style.cursor = 'default';
     });
     dom.addEventListener('pointerdown', (ev) => {
       downX = ev.clientX;
@@ -405,6 +411,8 @@ export class WorldScene {
   // ---------------------------------------------------------------------------
   setMode(mode: ViewMode): void {
     this.mode = mode;
+    // 输入层同步切换：上帝视角不吞 WASD/滚轮（留给轨道相机），亲征视角才接管
+    this.controls?.setMode(mode);
     if (mode === 'god') {
       this.orbit.enabled = true;
       this.camera.position.copy(GOD_CAMERA_POS);

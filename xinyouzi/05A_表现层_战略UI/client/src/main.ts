@@ -43,12 +43,16 @@ async function buildWorld(): Promise<void> {
   await newScene.init(container, store, {
     onHover: (target: HoverTarget | null) => hud?.showHoverCard(target),
     onSelectCity: (cityId: number) => {
+      // 选中城池：信息卡钉住 + 打开侧栏（信息与指令面板）
+      hud?.pinHoverCard({ kind: 'city', id: cityId });
       hud?.openCityPanel(cityId);
     },
     onSelectArmy: (armyId: number) => {
+      hud?.pinHoverCard({ kind: 'army', id: armyId });
       hud?.openArmyPanel(armyId);
     },
     onClickEmpty: () => {
+      hud?.unpinHoverCard();
       hud?.closeSide();
     },
   }, controls);
@@ -84,9 +88,9 @@ function setViewMode(mode: ViewMode): void {
   scene.setMode(mode);
   hud.setViewModeUI(mode);
   if (mode === 'god') {
-    hud.toast('上帝视角：轨道相机 · 点击城池下达宏观指令', 'info');
+    hud.toast('上帝视角：左键拖拽旋转 · 滚轮缩放 · 右键平移 · 点击城池下令（快捷键 1）', 'info');
   } else {
-    hud.toast('亲征视角：WASD / 摇杆 行走 · E 或右下「交互」键与城池/军团交互', 'info');
+    hud.toast('亲征视角：WASD 行走 · 左键拖拽转视角 · 滚轮缩放 · E 交互（快捷键 2）', 'info');
   }
 }
 

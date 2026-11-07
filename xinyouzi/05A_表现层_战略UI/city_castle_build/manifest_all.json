@@ -1,0 +1,13 @@
+[
+  {"title":"君主（站立·白皙肤色）", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/monarch_v2.glb"},
+  {"title":"城堡（AI 石头）", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/castle_ai.glb"},
+  {"title":"步兵", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/inf.glb"},
+  {"title":"弓兵", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/arc.glb"},
+  {"title":"骑兵", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/cav.glb"},
+  {"title":"攻城锤", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/ram.glb"},
+  {"title":"城门（完好）", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/gate_closed.glb"},
+  {"title":"城门（破损）", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/gate_broken.glb"},
+  {"title":"战场遗迹", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/ruin.glb"},
+  {"title":"君主（坐姿）", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/lseat.glb"},
+  {"title":"君主（骑乘）", "file":"E:/xinyouzi/05A_表现层_战略UI/city_castle_build/lride.glb"}
+]
