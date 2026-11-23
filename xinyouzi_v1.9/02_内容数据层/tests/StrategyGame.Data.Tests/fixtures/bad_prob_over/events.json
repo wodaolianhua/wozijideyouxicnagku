@@ -1,0 +1,278 @@
+{
+  "_comment": "事件库。任务书 R5 要求至少 15 条，覆盖四类（民生/军事/人才/灾害），契约 EventCategory 另有 Diplomacy 与 Internal 两类，此处一并覆盖以免枚举留白。【契约 v1.2】GameEventTemplate.Id 已是正整数，不再使用字符串 ID。Probability 为万分比（10000 = 100%），且【同一 Category 的概率之和不得超过 6000】——超过则每回合触发过多，游戏变成抽奖。Effects 是效果参数键值对，由 03 包的 Resolver 消费。效果值允许为负（灾祸就是减益），但不允许 0（等于什么都没发生）。",
+  "_todos": [
+    "TODO(数值): 所有 Probability 与 Effects 数值均为占位值，01_设计规格层事件表未定稿。各类别概率之和（万分比）：Economy 3400、Military 3600、Personnel 3000、Disaster 3400、Diplomacy 2000，均已控制在 6000 上限内。",
+    "TODO(规则): Effects 的键名约定（如 grain/silver/morale/stability/loyalty/population/soldier）需与 03 包的 Resolver 对齐。当前为占位约定，定稿后统一。",
+    "TODO(命名): 文案均为占位中文，未使用真实历史地名或人物名。"
+  ],
+  "events": [
+    {
+      "id": 1001,
+      "category": "Economy",
+      "probability": 10100,
+      "message": "今岁风调雨顺，仓廪渐实。",
+      "effects": {
+        "grain": 200,
+        "stability": 2
+      },
+      "_c_id": "事件唯一整数 ID，全局唯一，必须为正整数。分段约定：1000 段民生、1100 段军事、1200 段人才、1300 段灾害、1400 段外交。新增事件在所属段内递增，不要跨段插号。",
+      "_c_category": "事件类别枚举，取值必须是 EventCategory 之一。",
+      "_c_probability": "触发概率，万分比（10000 = 100%）。同一类别的所有事件概率之和不得超过 6000。",
+      "_c_message": "面向玩家的中文文本。契约注明此字段会直接展示，不能为空。",
+      "_c_effects": "效果参数键值对，由 03 包 Resolver 消费。值为正表示增益，为负表示减益，禁止为 0。若效果含义是比率，键名带 _rate 后缀并用万分比。"
+    },
+    {
+      "id": 1002,
+      "category": "Economy",
+      "probability": 800,
+      "message": "市集熙攘，商税比往常多了一成。",
+      "effects": {
+        "silver": 300
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，民生。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：银两增加。"
+    },
+    {
+      "id": 1003,
+      "category": "Economy",
+      "probability": 700,
+      "message": "边地商路断绝，货物积压。",
+      "effects": {
+        "silver": -150,
+        "stability": -3
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，民生。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：银两减少，稳定度下降。减益事件用负值表达。"
+    },
+    {
+      "id": 1004,
+      "category": "Economy",
+      "probability": 700,
+      "message": "新渠开凿，荒田渐辟。",
+      "effects": {
+        "grain": 150,
+        "population": 100
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，民生。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：粮草与人口双增。"
+    },
+    {
+      "id": 1101,
+      "category": "Military",
+      "probability": 1400,
+      "message": "烽燧相望，斥候来报：边境有异动。",
+      "effects": {
+        "morale": -4,
+        "soldier": -50
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，军事。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：士气下降，兵源损失。"
+    },
+    {
+      "id": 1102,
+      "category": "Military",
+      "probability": 800,
+      "message": "守卒换防，军中稍安。",
+      "effects": {
+        "morale": 3,
+        "soldier": 100
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，军事。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：士气与兵源增加。"
+    },
+    {
+      "id": 1103,
+      "category": "Military",
+      "probability": 700,
+      "message": "溃兵为寇，边民不得安宁。",
+      "effects": {
+        "stability": -5,
+        "silver": -100
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，军事。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：稳定度与银两双降。"
+    },
+    {
+      "id": 1104,
+      "category": "Military",
+      "probability": 700,
+      "message": "缴获辎重，尽归仓廪。",
+      "effects": {
+        "grain": 150,
+        "silver": 100
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，军事。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：粮草与银两增加。"
+    },
+    {
+      "id": 1201,
+      "category": "Personnel",
+      "probability": 1000,
+      "message": "有客远来，愿效力帐下。",
+      "effects": {
+        "loyalty": 5,
+        "stability": 2
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，人才。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：忠诚度与稳定度上升。"
+    },
+    {
+      "id": 1202,
+      "category": "Personnel",
+      "probability": 800,
+      "message": "旧部离心，其言常在于叹息。",
+      "effects": {
+        "loyalty": -6
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，人才。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：忠诚度下降。与 config.json 的 loyaltyDecayPerMonth 配合构成忠诚压力。"
+    },
+    {
+      "id": 1203,
+      "category": "Personnel",
+      "probability": 600,
+      "message": "有人举荐贤才，然其名未显。",
+      "effects": {
+        "silver": -80,
+        "loyalty": 3
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，人才。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：花费银两换取忠诚度上升。"
+    },
+    {
+      "id": 1204,
+      "category": "Personnel",
+      "probability": 600,
+      "message": "属吏告病，职事遂闲。",
+      "effects": {
+        "stability": -3,
+        "silver": -50
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，人才。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：稳定度与银两下降。"
+    },
+    {
+      "id": 1301,
+      "category": "Disaster",
+      "probability": 1200,
+      "message": "久旱不雨，田亩龟裂。",
+      "effects": {
+        "grain": -250,
+        "stability": -4
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，灾害。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：粮草大幅减少，稳定度下降。"
+    },
+    {
+      "id": 1302,
+      "category": "Disaster",
+      "probability": 800,
+      "message": "河水暴涨，堤岸倾颓。",
+      "effects": {
+        "grain": -150,
+        "population": -50
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，灾害。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：粮草减少，人口流失。"
+    },
+    {
+      "id": 1303,
+      "category": "Disaster",
+      "probability": 800,
+      "message": "疫气流行，市井萧然。",
+      "effects": {
+        "population": -80,
+        "morale": -3
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，灾害。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：人口与士气双降。"
+    },
+    {
+      "id": 1304,
+      "category": "Disaster",
+      "probability": 600,
+      "message": "风雹骤至，屋瓦尽碎。",
+      "effects": {
+        "stability": -3,
+        "silver": -100
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，灾害。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：稳定度与银两下降。"
+    },
+    {
+      "id": 1401,
+      "category": "Diplomacy",
+      "probability": 1000,
+      "message": "邻邦遣使来聘，两家尚可相安。",
+      "effects": {
+        "stability": 3,
+        "silver": -60
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，外交。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：稳定度上升，银两略减（聘礼）。"
+    },
+    {
+      "id": 1402,
+      "category": "Diplomacy",
+      "probability": 1000,
+      "message": "边将言和，尺土可以徐图。",
+      "effects": {
+        "morale": 2,
+        "stability": 2
+      },
+      "_c_id": "事件唯一整数 ID。",
+      "_c_category": "事件类别枚举，外交。",
+      "_c_probability": "触发概率，万分比。",
+      "_c_message": "面向玩家的中文文本。",
+      "_c_effects": "效果键值对：士气与稳定度上升。"
+    }
+  ]
+}

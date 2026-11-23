@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <RootNamespace>StrategyGame.Core.Tests</RootNamespace>
+    <AssemblyName>StrategyGame.Core.Tests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+
+    <!-- 本机仅安装 .NET 10 运行时，允许 net8.0 测试向上滚动 -->
+    <RollForward>LatestMajor</RollForward>
+
+    <!-- 测试工程不强制 XML 注释，规则层的 Core 工程已强制 -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StrategyGame.Core\StrategyGame.Core.csproj" />
+  </ItemGroup>
+
+</Project>

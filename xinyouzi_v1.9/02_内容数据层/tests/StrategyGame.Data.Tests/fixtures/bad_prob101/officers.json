@@ -1,0 +1,310 @@
+{
+  "_comment": "人才初始表。玩家（薪火）4 人，四维全部落在 40-55；其中 3 人各有一项低于 42，构成明显短板——这是「用人」玩法的前提，不许做成全员强人。玩家 4 人开局全部未任职，需要玩家自己决定谁管内政、谁管军事。赤壤 5 人、苍岭 4 人，四维 55-78，已按岗位任职，构成开局压迫感。",
+  "_todos": [
+    "TODO(数值): 属性为占位值，待千局模拟校准。",
+    "TODO(命名): 人才名使用 Officer_NN 占位，接入名字生成器后替换。"
+  ],
+  "officers": [
+    {
+      "id": 1,
+      "name": "Officer_01",
+      "command": 48,
+      "governance": 52,
+      "intellect": 40,
+      "charisma": 55,
+      "loyalty": 65,
+      "age": 41,
+      "specialty": "Agriculture",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 2,
+      "name": "Officer_02",
+      "command": 55,
+      "governance": 44,
+      "intellect": 38,
+      "charisma": 47,
+      "loyalty": 65,
+      "age": 35,
+      "specialty": "Siege",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 3,
+      "name": "Officer_03",
+      "command": 43,
+      "governance": 50,
+      "intellect": 53,
+      "charisma": 39,
+      "loyalty": 65,
+      "age": 52,
+      "specialty": "Logistics",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 4,
+      "name": "Officer_04",
+      "command": 51,
+      "governance": 55,
+      "intellect": 46,
+      "charisma": 50,
+      "loyalty": 65,
+      "age": 44,
+      "specialty": "None",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 5,
+      "name": "Officer_05",
+      "command": 76,
+      "governance": 58,
+      "intellect": 55,
+      "charisma": 60,
+      "loyalty": 80,
+      "age": 34,
+      "specialty": "Cavalry",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 6,
+      "name": "Officer_06",
+      "command": 66,
+      "governance": 71,
+      "intellect": 63,
+      "charisma": 58,
+      "loyalty": 78,
+      "age": 47,
+      "specialty": "Agriculture",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 7,
+      "name": "Officer_07",
+      "command": 61,
+      "governance": 64,
+      "intellect": 69,
+      "charisma": 52,
+      "loyalty": 74,
+      "age": 39,
+      "specialty": "Logistics",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 8,
+      "name": "Officer_08",
+      "command": 70,
+      "governance": 55,
+      "intellect": 57,
+      "charisma": 64,
+      "loyalty": 76,
+      "age": 31,
+      "specialty": "Siege",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 9,
+      "name": "Officer_09",
+      "command": 58,
+      "governance": 60,
+      "intellect": 66,
+      "charisma": 55,
+      "loyalty": 72,
+      "age": 50,
+      "specialty": "Diplomacy",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 10,
+      "name": "Officer_10",
+      "command": 68,
+      "governance": 49,
+      "intellect": 54,
+      "charisma": 50,
+      "loyalty": 72,
+      "age": 29,
+      "specialty": "Cavalry",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 11,
+      "name": "Officer_11",
+      "command": 57,
+      "governance": 63,
+      "intellect": 61,
+      "charisma": 48,
+      "loyalty": 70,
+      "age": 45,
+      "specialty": "Siege",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 12,
+      "name": "Officer_12",
+      "command": 52,
+      "governance": 58,
+      "intellect": 52,
+      "charisma": 59,
+      "loyalty": 68,
+      "age": 38,
+      "specialty": "Logistics",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    },
+    {
+      "id": 13,
+      "name": "Officer_13",
+      "command": 63,
+      "governance": 45,
+      "intellect": 60,
+      "charisma": 47,
+      "loyalty": 66,
+      "age": 26,
+      "specialty": "Agriculture",
+      "_c_intellect": "智谋 0-100。影响科技部门效率与守城加成。",
+      "_c_charisma": "魅力 0-100。影响招募、外交与忠诚上限。"
+    }
+  ],
+  "officerStates": [
+    {
+      "officerId": 1,
+      "ownerFactionId": 0,
+      "postCityId": -1,
+      "post": "None",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 2,
+      "ownerFactionId": 0,
+      "postCityId": -1,
+      "post": "None",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 3,
+      "ownerFactionId": 0,
+      "postCityId": -1,
+      "post": "None",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 4,
+      "ownerFactionId": 0,
+      "postCityId": -1,
+      "post": "None",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 5,
+      "ownerFactionId": 1,
+      "postCityId": 3,
+      "post": "General",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 6,
+      "ownerFactionId": 1,
+      "postCityId": 3,
+      "post": "FarmOverseer",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 7,
+      "ownerFactionId": 1,
+      "postCityId": 3,
+      "post": "CityGovernor",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 8,
+      "ownerFactionId": 1,
+      "postCityId": 4,
+      "post": "General",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 9,
+      "ownerFactionId": 1,
+      "postCityId": 5,
+      "post": "CityGovernor",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 10,
+      "ownerFactionId": 2,
+      "postCityId": 6,
+      "post": "General",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 11,
+      "ownerFactionId": 2,
+      "postCityId": 6,
+      "post": "CityGovernor",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 12,
+      "ownerFactionId": 2,
+      "postCityId": 7,
+      "post": "CityGovernor",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    },
+    {
+      "officerId": 13,
+      "ownerFactionId": 2,
+      "postCityId": 7,
+      "post": "FarmOverseer",
+      "isAlive": true,
+      "_c_ownerFactionId": "归属势力。-1=在野。0=玩家，1=赤壤，2=苍岭。",
+      "_c_postCityId": "-1 表示未任职。玩家开局全部未任职，由玩家自行安排。",
+      "_c_post": "当前岗位，取值必须是 PostType 之一。"
+    }
+  ]
+}

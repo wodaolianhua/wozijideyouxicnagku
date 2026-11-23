@@ -1,0 +1,52 @@
+{
+  "_comment": "难度档位表。三档必须齐全，否则读档时拿不到系数会导致开局崩溃。契约 DifficultyLevel 的注释明确规定：难度只影响开局加载的 BalanceConfig，运行中不得改变；难度等级必须存入 WorldState，否则存档与回放无法重现同一难度。这也是难度系数单独成文件、而不是塞进 config.json 的原因——物理隔离能防止有人写出运行时改难度的代码。",
+  "_todos": [
+    "TODO(数值): AI 积极度与可攻占开关为占位值，01_设计规格层未定稿。",
+    "TODO(数值): 契约注释给出的倍率是 Easy ×1.3、Hard ×0.85，此处以百分数 130 / 85 表达，避免浮点。"
+  ],
+
+  "difficulties": [
+    {
+      "difficulty": "Easy",
+      "displayName": "艰难求生",
+      "aiResourceMultiplierPercent": 130,
+      "aiAggressionPercent": 30,
+      "aiCanInitiateSiege": false,
+      "description": "AI 资源 ×1.3，但决策保守且不主动进攻。给新手熟悉系统的空间。目标玩家胜率 60% 以上。",
+      "_c_difficulty": "难度枚举。必须是 DifficultyLevel 之一：Easy / Normal / Hard。",
+      "_c_displayName": "UI 显示名。",
+      "_c_aiResourceMultiplierPercent": "AI 资源倍率（百分数）。130 = AI 资源 ×1.3。必须为正数，否则 AI 开局即饿死。",
+      "_c_aiAggressionPercent": "AI 扩张积极度（百分数，0-100）。数值越高 AI 越倾向主动出兵。",
+      "_c_aiCanInitiateSiege": "AI 是否允许主动攻城。false 表示只防守与屯田，新手不会被突袭。",
+      "_c_description": "难度说明，给策划与测试看。"
+    },
+    {
+      "difficulty": "Normal",
+      "displayName": "偏安一隅",
+      "aiResourceMultiplierPercent": 100,
+      "aiAggressionPercent": 50,
+      "aiCanInitiateSiege": true,
+      "description": "基准数值，AI 正常评估威胁。目标玩家胜率 25%-45%，是设计的主难度。",
+      "_c_difficulty": "难度枚举。Normal 为基准档。",
+      "_c_displayName": "UI 显示名。",
+      "_c_aiResourceMultiplierPercent": "AI 资源倍率（百分数）。100 = 不做缩放。",
+      "_c_aiAggressionPercent": "AI 扩张积极度（百分数）。50 为中性。",
+      "_c_aiCanInitiateSiege": "AI 允许主动攻城。",
+      "_c_description": "难度说明。"
+    },
+    {
+      "difficulty": "Hard",
+      "displayName": "四面楚歌",
+      "aiResourceMultiplierPercent": 85,
+      "aiAggressionPercent": 75,
+      "aiCanInitiateSiege": true,
+      "description": "AI 资源 ×0.85，主动扩张并针对玩家弱点。AI 会等玩家犯错。目标玩家胜率 15% 以下。",
+      "_c_difficulty": "难度枚举。Hard 为最难档。",
+      "_c_displayName": "UI 显示名。",
+      "_c_aiResourceMultiplierPercent": "AI 资源倍率（百分数）。85 = AI 资源 ×0.85，让玩家有喘息之机。",
+      "_c_aiAggressionPercent": "AI 扩张积极度（百分数）。75 = 积极扩张。",
+      "_c_aiCanInitiateSiege": "AI 允许主动攻城。",
+      "_c_description": "难度说明。"
+    }
+  ]
+}

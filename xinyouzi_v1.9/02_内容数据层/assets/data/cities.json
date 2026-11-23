@@ -1,0 +1,244 @@
+{
+  "_comment": "城池初始表。7 座城分属 3 个势力：玩家 0（城池 1、2），赤壤 1（城池 3、4、5），苍岭 2（城池 6、7）。玩家是「没落贵族」：2 座相邻小城，人口最少、资源最少，只有一座城能通向外域。相邻关系必须对称，否则派兵会出现单向通道。省州分组：provinceId 1=玩家所在州，2=赤壤所在州，3=苍岭所在州。",
+  "_todos": [
+    "TODO(数值): 人口、防御、等级为占位值，待平衡模拟（06 包）回收正式值。",
+    "TODO(命名): 城池名使用 City_NN 占位，遵守 D13「不使用真实历史地名」。"
+  ],
+  "cities": [
+    {
+      "id": 1,
+      "name": "燧阳",
+      "factionId": 0,
+      "population": 3000,
+      "terrain": "Plain",
+      "isCapital": true,
+      "adjacentCityIds": [
+        2
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_factionId": "所属势力 ID。0=玩家，1=赤壤，2=苍岭。",
+      "_c_population": "当前人口（整数）。",
+      "_c_terrain": "地形枚举，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力恰好一座为 true。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表，必须对称。"
+    },
+    {
+      "id": 2,
+      "name": "薪州",
+      "factionId": 0,
+      "population": 2800,
+      "terrain": "Hill",
+      "isCapital": false,
+      "adjacentCityIds": [
+        1,
+        3,
+        4
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_factionId": "所属势力 ID。0=玩家，1=赤壤，2=苍岭。",
+      "_c_population": "当前人口（整数）。",
+      "_c_terrain": "地形枚举，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力恰好一座为 true。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表，必须对称。"
+    },
+    {
+      "id": 3,
+      "name": "绛都",
+      "factionId": 1,
+      "population": 6000,
+      "terrain": "Plain",
+      "isCapital": true,
+      "adjacentCityIds": [
+        2,
+        4,
+        5
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_factionId": "所属势力 ID。0=玩家，1=赤壤，2=苍岭。",
+      "_c_population": "当前人口（整数）。",
+      "_c_terrain": "地形枚举，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力恰好一座为 true。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表，必须对称。"
+    },
+    {
+      "id": 4,
+      "name": "赭川",
+      "factionId": 1,
+      "population": 3000,
+      "terrain": "Plain",
+      "isCapital": false,
+      "adjacentCityIds": [
+        2,
+        3,
+        6
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_factionId": "所属势力 ID。0=玩家，1=赤壤，2=苍岭。",
+      "_c_population": "当前人口（整数）。",
+      "_c_terrain": "地形枚举，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力恰好一座为 true。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表，必须对称。"
+    },
+    {
+      "id": 5,
+      "name": "丹谷",
+      "factionId": 1,
+      "population": 3000,
+      "terrain": "Hill",
+      "isCapital": false,
+      "adjacentCityIds": [
+        3,
+        7
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_factionId": "所属势力 ID。0=玩家，1=赤壤，2=苍岭。",
+      "_c_population": "当前人口（整数）。",
+      "_c_terrain": "地形枚举，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力恰好一座为 true。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表，必须对称。"
+    },
+    {
+      "id": 6,
+      "name": "青嶂",
+      "factionId": 2,
+      "population": 3000,
+      "terrain": "Mountain",
+      "isCapital": true,
+      "adjacentCityIds": [
+        4,
+        7
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_factionId": "所属势力 ID。0=玩家，1=赤壤，2=苍岭。",
+      "_c_population": "当前人口（整数）。",
+      "_c_terrain": "地形枚举，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力恰好一座为 true。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表，必须对称。"
+    },
+    {
+      "id": 7,
+      "name": "黛谷",
+      "factionId": 2,
+      "population": 3000,
+      "terrain": "Forest",
+      "isCapital": false,
+      "adjacentCityIds": [
+        5,
+        6
+      ],
+      "_c_id": "城池唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_factionId": "所属势力 ID。0=玩家，1=赤壤，2=苍岭。",
+      "_c_population": "当前人口（整数）。",
+      "_c_terrain": "地形枚举，取值必须是 TerrainType 之一。",
+      "_c_isCapital": "是否首都。每个势力恰好一座为 true。",
+      "_c_adjacentCityIds": "相邻城池 ID 列表，必须对称。"
+    }
+  ],
+  "cityStates": [
+    {
+      "cityId": 1,
+      "maxPopulation": 8000,
+      "defense": 150,
+      "maxDefense": 900,
+      "fortifyLevel": 1,
+      "farmLevel": 0,
+      "barracksLevel": 0,
+      "marketLevel": 0,
+      "provinceId": 1,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_barracksLevel": "兵营等级 0-5，影响兵源产出。开局统一 0，靠玩家自己升。",
+      "_c_marketLevel": "市集等级 0-5，影响银收入。开局统一 0。",
+      "_c_provinceId": "所属州 Id，S1 尺度分组用。1=玩家州，2=赤壤州，3=苍岭州。"
+    },
+    {
+      "cityId": 2,
+      "maxPopulation": 7000,
+      "defense": 120,
+      "maxDefense": 800,
+      "fortifyLevel": 1,
+      "farmLevel": 0,
+      "barracksLevel": 0,
+      "marketLevel": 0,
+      "provinceId": 1,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_barracksLevel": "兵营等级 0-5，影响兵源产出。开局统一 0，靠玩家自己升。",
+      "_c_marketLevel": "市集等级 0-5，影响银收入。开局统一 0。",
+      "_c_provinceId": "所属州 Id，S1 尺度分组用。1=玩家州，2=赤壤州，3=苍岭州。"
+    },
+    {
+      "cityId": 3,
+      "maxPopulation": 12000,
+      "defense": 400,
+      "maxDefense": 1000,
+      "fortifyLevel": 3,
+      "farmLevel": 0,
+      "barracksLevel": 0,
+      "marketLevel": 0,
+      "provinceId": 2,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_barracksLevel": "兵营等级 0-5，影响兵源产出。开局统一 0，靠玩家自己升。",
+      "_c_marketLevel": "市集等级 0-5，影响银收入。开局统一 0。",
+      "_c_provinceId": "所属州 Id，S1 尺度分组用。1=玩家州，2=赤壤州，3=苍岭州。"
+    },
+    {
+      "cityId": 4,
+      "maxPopulation": 9000,
+      "defense": 320,
+      "maxDefense": 800,
+      "fortifyLevel": 2,
+      "farmLevel": 0,
+      "barracksLevel": 0,
+      "marketLevel": 0,
+      "provinceId": 2,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_barracksLevel": "兵营等级 0-5，影响兵源产出。开局统一 0，靠玩家自己升。",
+      "_c_marketLevel": "市集等级 0-5，影响银收入。开局统一 0。",
+      "_c_provinceId": "所属州 Id，S1 尺度分组用。1=玩家州，2=赤壤州，3=苍岭州。"
+    },
+    {
+      "cityId": 5,
+      "maxPopulation": 9000,
+      "defense": 340,
+      "maxDefense": 800,
+      "fortifyLevel": 2,
+      "farmLevel": 0,
+      "barracksLevel": 0,
+      "marketLevel": 0,
+      "provinceId": 2,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_barracksLevel": "兵营等级 0-5，影响兵源产出。开局统一 0，靠玩家自己升。",
+      "_c_marketLevel": "市集等级 0-5，影响银收入。开局统一 0。",
+      "_c_provinceId": "所属州 Id，S1 尺度分组用。1=玩家州，2=赤壤州，3=苍岭州。"
+    },
+    {
+      "cityId": 6,
+      "maxPopulation": 8000,
+      "defense": 400,
+      "maxDefense": 900,
+      "fortifyLevel": 2,
+      "farmLevel": 0,
+      "barracksLevel": 0,
+      "marketLevel": 0,
+      "provinceId": 3,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_barracksLevel": "兵营等级 0-5，影响兵源产出。开局统一 0，靠玩家自己升。",
+      "_c_marketLevel": "市集等级 0-5，影响银收入。开局统一 0。",
+      "_c_provinceId": "所属州 Id，S1 尺度分组用。1=玩家州，2=赤壤州，3=苍岭州。"
+    },
+    {
+      "cityId": 7,
+      "maxPopulation": 7500,
+      "defense": 280,
+      "maxDefense": 800,
+      "fortifyLevel": 1,
+      "farmLevel": 0,
+      "barracksLevel": 0,
+      "marketLevel": 0,
+      "provinceId": 3,
+      "_c_cityId": "对应 cities[].id。",
+      "_c_barracksLevel": "兵营等级 0-5，影响兵源产出。开局统一 0，靠玩家自己升。",
+      "_c_marketLevel": "市集等级 0-5，影响银收入。开局统一 0。",
+      "_c_provinceId": "所属州 Id，S1 尺度分组用。1=玩家州，2=赤壤州，3=苍岭州。"
+    }
+  ]
+}

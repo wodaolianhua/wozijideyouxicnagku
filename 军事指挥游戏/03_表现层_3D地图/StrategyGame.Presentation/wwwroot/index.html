@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>行军指挥 · 雁回走廊</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="map"></canvas>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-title">行军指挥 · 雁回走廊</div>
+      <div class="brand-sub">第一阶段 · 敌军行军全程可见</div>
+    </div>
+    <div class="top-actions">
+      <div class="clock" id="clock">
+        <span class="clock-label">时间步</span>
+        <span class="clock-value" id="timeValue">0</span>
+      </div>
+      <button id="btnStep" class="btn">推进 1 步</button>
+      <button id="btnFastForward" class="btn primary">快进</button>
+      <button id="btnReset" class="btn danger">重开</button>
+    </div>
+  </header>
+
+  <section class="panel status" aria-label="战况">
+    <div class="status-row">
+      <span class="dot player"></span><span class="status-label">我方</span>
+      <strong id="playerStat">—</strong>
+    </div>
+    <div class="status-row">
+      <span class="dot enemy"></span><span class="status-label">敌军</span>
+      <strong id="enemyStat" class="enemy-text">—</strong>
+    </div>
+    <div class="status-divider"></div>
+    <div class="status-row quiet"><span class="status-label">地形</span><span class="muted" id="legendText">浮雕地形 · 等高线</span></div>
+  </section>
+
+  <details class="panel help" aria-label="操作说明">
+    <summary>操作说明</summary>
+    <ol class="help-list">
+      <li>点击蓝色我方部队选中，再点一次取消选中。</li>
+      <li>点击地图任意位置会自动吸附到最近节点。</li>
+      <li>连续点多个节点组成折线（包抄/迂回），右键撤回上一个。</li>
+      <li>按 <kbd>Enter</kbd> 或点「下令行军」出发，部队沿路线<b>连续行军</b>，直至抵达 / 遭遇 / 你点暂停。</li>
+      <li>「推进 1 步」播放单步动画；「快进」是加速播放，逐步走完，遇敌停下弹战报。</li>
+      <li>每支部队名条常显状态：待命 / 行军中 / 已抵达 / 遭遇中。</li>
+    </ol>
+    <div class="legend">
+      <span class="legend-item"><i class="swatch plain"></i>平原</span>
+      <span class="legend-item"><i class="swatch hill"></i>丘陵</span>
+      <span class="legend-item"><i class="swatch mountain"></i>山地</span>
+      <span class="legend-item"><i class="swatch forest"></i>森林</span>
+      <span class="legend-item"><i class="swatch river"></i>河流</span>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><i class="line road"></i>道路</span>
+      <span class="legend-item"><i class="line path"></i>山路</span>
+      <span class="legend-item"><i class="dot player"></i>我方</span>
+      <span class="legend-item"><i class="dot enemy"></i>敌军</span>
+    </div>
+  </details>
+
+  <footer class="cmdbar">
+    <div class="cmd-info">
+      <div class="cmd-title" id="selectedName">未选中部队</div>
+      <div class="cmd-sub" id="selectedDetail">点选蓝色部队后，点击地图节点下令</div>
+      <div class="cmd-order hidden" id="orderBanner"></div>
+      <div class="wp-list" id="waypointList"></div>
+    </div>
+    <div class="cmd-actions">
+      <button id="btnClear" class="btn" disabled>清空目标</button>
+      <button id="btnOrder" class="btn primary" disabled>下令行军</button>
+      <button id="btnPause" class="btn pause" hidden>暂停行军</button>
+    </div>
+  </footer>
+
+  <div id="toastLayer" class="toast-layer" aria-live="polite"></div>
+  <div id="modalLayer" class="modal-layer hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

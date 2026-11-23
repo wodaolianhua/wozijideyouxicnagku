@@ -1,0 +1,106 @@
+{
+  "_comment": "特质效果表。契约只定义了 OfficerSpecialty 枚举（专长「是什么」），没有定义「效果多少」（加成数值）。枚举是契约不可改，数值是策划自由，所以效果数值独立成文件。人才身上的 specialty 必须在 specialties.json 中有对应条目，且该条目 isAssignable=true，否则校验报错。这 6 条覆盖了枚举的全部取值，保证任一专长都有定义。",
+  "_todos": [
+    "TODO(数值): bonusPercent 为万分比（10000 = 100%），与 config.json 的 specialtyBonus 同一刻度。全部为占位值，与 config.json 的 specialtyBonus 表配套。01_设计规格层未定稿。",
+    "TODO(一致性): 本文件的 bonusPercent 与 config.json 的 specialtyBonus 描述同一套加成。两个文件都要改，改一处漏一处会导致实际生效值与预期不符。此处以 config.json 的 specialtyBonus 为运行时真值，本文件的 bonusPercent 仅供策划阅读参考。"
+  ],
+
+  "specialties": [
+    {
+      "id": 1,
+      "specialty": "Agriculture",
+      "name": "农本",
+      "description": "精于屯田与水利的农官。任命到屯田使岗位时粮食产出显著提升。",
+      "preferredPost": "FarmOverseer",
+      "bonusPercent": 2500,
+      "isAssignable": true,
+      "_c_id": "特质唯一整数 ID。全局唯一，禁止字符串。",
+      "_c_specialty": "对应的专长枚举。人才身上的 specialty 必须能在此找到。",
+      "_c_name": "特质中文名，用于 UI 展示。",
+      "_c_description": "特质说明，写清楚到底让什么变强，避免半年后没人记得。",
+      "_c_preferredPost": "最适合的岗位。任命到该岗位时加成最高。",
+      "_c_bonusPercent": "加成，万分比。10000 表示 +100%。不允许负数。与 config.json 的 specialtyBonus 同一刻度。",
+      "_c_isAssignable": "是否可被人才持有。false 表示仅作展示或预留。"
+    },
+    {
+      "id": 2,
+      "specialty": "Siege",
+      "name": "攻坚",
+      "description": "善用云梯与壕壕的老将。任命到将军岗位时攻城伤害提升。",
+      "preferredPost": "General",
+      "bonusPercent": 2000,
+      "isAssignable": true,
+      "_c_id": "特质唯一整数 ID。",
+      "_c_specialty": "专长枚举，攻城。",
+      "_c_name": "特质中文名。",
+      "_c_description": "特质说明。",
+      "_c_preferredPost": "最适合的岗位，将军。",
+      "_c_bonusPercent": "加成，万分比。",
+      "_c_isAssignable": "是否可被人才持有。"
+    },
+    {
+      "id": 3,
+      "specialty": "Cavalry",
+      "name": "疾驰",
+      "description": "熟稔骑兵突袭的猛将。任命到将军岗位时部队机动与突袭能力提升。",
+      "preferredPost": "General",
+      "bonusPercent": 2000,
+      "isAssignable": true,
+      "_c_id": "特质唯一整数 ID。",
+      "_c_specialty": "专长枚举，骑兵。",
+      "_c_name": "特质中文名。",
+      "_c_description": "特质说明。",
+      "_c_preferredPost": "最适合的岗位，将军。",
+      "_c_bonusPercent": "加成，万分比。",
+      "_c_isAssignable": "是否可被人才持有。"
+    },
+    {
+      "id": 4,
+      "specialty": "Logistics",
+      "name": "转饷",
+      "description": "精于粮草调度的辎重官。无论任命到哪个岗位都能降低消耗、提升士气恢复。",
+      "preferredPost": "CityGovernor",
+      "bonusPercent": 1500,
+      "isAssignable": true,
+      "_c_id": "特质唯一整数 ID。",
+      "_c_specialty": "专长枚举，后勤。此专长在 config.json 中配的是 Logistics:Any，即对所有岗位生效。",
+      "_c_name": "特质中文名。",
+      "_c_description": "特质说明。",
+      "_c_preferredPost": "最适合的岗位，城守。",
+      "_c_bonusPercent": "加成，万分比。",
+      "_c_isAssignable": "是否可被人才持有。"
+    },
+    {
+      "id": 5,
+      "specialty": "Diplomacy",
+      "name": "纵横",
+      "description": "长于周旋的说客。提升结盟概率，降低外交成本。",
+      "preferredPost": "CityGovernor",
+      "bonusPercent": 1000,
+      "isAssignable": true,
+      "_c_id": "特质唯一整数 ID。",
+      "_c_specialty": "专长枚举，外交。",
+      "_c_name": "特质中文名。",
+      "_c_description": "特质说明。",
+      "_c_preferredPost": "最适合的岗位，城守。",
+      "_c_bonusPercent": "加成，万分比。外交类加成偏低，因为结盟在骨架阶段是 P2 优先级。",
+      "_c_isAssignable": "是否可被人才持有。"
+    },
+    {
+      "id": 6,
+      "specialty": "None",
+      "name": "平常",
+      "description": "无专长。不提供任何加成，是平民出身人才的默认状态。",
+      "preferredPost": "None",
+      "bonusPercent": 0,
+      "isAssignable": true,
+      "_c_id": "特质唯一整数 ID。",
+      "_c_specialty": "专长枚举，无。校验器对 None 做了豁免：None 不要求专长表中有增益条目。",
+      "_c_name": "特质中文名。",
+      "_c_description": "特质说明。",
+      "_c_preferredPost": "无特定偏好。",
+      "_c_bonusPercent": "0 表示不提供加成。",
+      "_c_isAssignable": "是否可被人才持有。"
+    }
+  ]
+}

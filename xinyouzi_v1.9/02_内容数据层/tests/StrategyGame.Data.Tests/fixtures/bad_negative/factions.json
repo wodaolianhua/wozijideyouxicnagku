@@ -1,0 +1,81 @@
+{
+  "_comment": "势力初始表。3 个势力：0=玩家（薪火），1=赤壤（强邻），2=苍岭（山间势力）。世界观为架空（D13），势力名与地名均为自造，不使用真实历史政权名。玩家资源总量约为赤壤的 45%，必须在劣势下靠人事与经营翻身。",
+  "_todos": [
+    "TODO(数值): 资源为占位值，待千局模拟校准。",
+    "TODO(命名): 势力名为占位自造名，接入名字生成器后替换。"
+  ],
+  "factions": [
+    {
+      "id": 0,
+      "name": "薪火",
+      "isPlayer": true,
+      "capitalCityId": 1,
+      "resources": {
+        "grain": -500,
+        "silver": 800,
+        "soldier": 300,
+        "morale": 60,
+        "stability": 60
+      },
+      "prestige": 0,
+      "unlockedScale": "S0_Local",
+      "departmentHead": {},
+      "lastRecruitMonth": 0,
+      "_c_id": "势力唯一整数 ID。0 固定为玩家。",
+      "_c_isPlayer": "是否玩家势力。全局恰好一个为 true。",
+      "_c_capitalCityId": "首都城池 ID，必须属于本势力且 isCapital=true。",
+      "_c_prestige": "声望。占城 +5、胜仗 +3、升建筑 +1、招名士 +2，用于解锁地图尺度。",
+      "_c_unlockedScale": "已解锁地图尺度。开局只有 S0_Local。",
+      "_c_departmentHead": "部门→主官人才 Id。未任命为空，游戏内写入。",
+      "_c_lastRecruitMonth": "最后一次招募的绝对月序号，0 表示从未招过。每月最多招一人。"
+    },
+    {
+      "id": 1,
+      "name": "赤壤",
+      "isPlayer": false,
+      "capitalCityId": 3,
+      "resources": {
+        "grain": 2600,
+        "silver": 2000,
+        "soldier": 800,
+        "morale": 65,
+        "stability": 65
+      },
+      "prestige": 0,
+      "unlockedScale": "S0_Local",
+      "departmentHead": {},
+      "lastRecruitMonth": 0,
+      "_c_id": "势力唯一整数 ID。0 固定为玩家。",
+      "_c_isPlayer": "是否玩家势力。全局恰好一个为 true。",
+      "_c_capitalCityId": "首都城池 ID，必须属于本势力且 isCapital=true。",
+      "_c_prestige": "声望。占城 +5、胜仗 +3、升建筑 +1、招名士 +2，用于解锁地图尺度。",
+      "_c_unlockedScale": "已解锁地图尺度。开局只有 S0_Local。",
+      "_c_departmentHead": "部门→主官人才 Id。未任命为空，游戏内写入。",
+      "_c_lastRecruitMonth": "最后一次招募的绝对月序号，0 表示从未招过。每月最多招一人。"
+    },
+    {
+      "id": 2,
+      "name": "苍岭",
+      "isPlayer": false,
+      "capitalCityId": 6,
+      "resources": {
+        "grain": 1500,
+        "silver": 900,
+        "soldier": 600,
+        "morale": 55,
+        "stability": 55
+      },
+      "prestige": 0,
+      "unlockedScale": "S0_Local",
+      "departmentHead": {},
+      "lastRecruitMonth": 0,
+      "_c_id": "势力唯一整数 ID。0 固定为玩家。",
+      "_c_isPlayer": "是否玩家势力。全局恰好一个为 true。",
+      "_c_capitalCityId": "首都城池 ID，必须属于本势力且 isCapital=true。",
+      "_c_prestige": "声望。占城 +5、胜仗 +3、升建筑 +1、招名士 +2，用于解锁地图尺度。",
+      "_c_unlockedScale": "已解锁地图尺度。开局只有 S0_Local。",
+      "_c_departmentHead": "部门→主官人才 Id。未任命为空，游戏内写入。",
+      "_c_lastRecruitMonth": "最后一次招募的绝对月序号，0 表示从未招过。每月最多招一人。"
+    }
+  ]
+}

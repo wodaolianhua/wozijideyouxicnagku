@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>city_castle.glb 预览</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <style>
+    html,body{margin:0;height:100%;background:#11141b;color:#e8e4d8;font-family:"Microsoft YaHei",sans-serif}
+    .wrap{display:flex;flex-direction:column;height:100%}
+    header{padding:12px 16px;background:#0c0f15;border-bottom:1px solid #232a36}
+    header b{color:#c9a44c}
+    model-viewer{flex:1;width:100%;background:radial-gradient(circle at 50% 40%,#1b2230,#0c0f15)}
+    .bar{padding:8px 16px;font-size:13px;color:#9aa3b2;background:#0c0f15}
+    .bar span{color:#c9a44c}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><b>city_castle.glb</b> 预览（方案 A：单色剪影，运行时整座染势力色）</header>
+    <model-viewer src="city_castle.glb" alt="castle" camera-controls auto-rotate
+      shadow-intensity="1" exposure="1" environment-image="neutral"
+      rotation-per-second="30deg">
+      <div slot="poster">加载中…</div>
+    </model-viewer>
+    <div class="bar">指标：Y-up · 底座贴地(y=0) · 高 11.6 · 半径 10.98 · 508 三角面 · 单网格单材质 · 自包含 GLB</div>
+  </div>
+</body>
+</html>
