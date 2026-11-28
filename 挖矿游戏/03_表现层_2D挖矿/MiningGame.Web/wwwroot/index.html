@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>挖矿工坊 · 2D 剖面挖矿</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">⛏</span>
+      <div>
+        <div class="title">挖矿工坊</div>
+        <div class="subtitle">挖原矿 → 打磨成色 → 按品质卖钱</div>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="hud-item"><span class="label">资金</span><b id="hud-money">¥0</b></div>
+      <div class="hud-item grow">
+        <span class="label">体力</span>
+        <div class="bar"><div id="stamina-fill" class="bar-fill"></div></div>
+        <b id="hud-stamina">0/0</b>
+      </div>
+      <div class="hud-item"><span class="label">背包</span><b id="hud-bag">0/0</b></div>
+      <div class="hud-item"><span class="label">工具</span><b id="hud-tool">徒手</b></div>
+      <div class="hud-item"><span class="label">深度</span><b id="hud-depth">0m</b></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="mine-panel">
+      <div class="tip" id="tip">
+        方向键 / WASD 移动，撞到实心格会自动挖；空格挖当前朝向。回到地面后按“打磨”“卖矿”。
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="mine"></canvas>
+      </div>
+      <div class="toolbar">
+        <button id="btn-surface" class="btn">回地面 (G)</button>
+        <button id="btn-polish" class="btn accent">打磨一批 (P)</button>
+        <button id="btn-polish-all" class="btn">全部打磨</button>
+        <button id="btn-sell" class="btn gold">卖矿 (F)</button>
+        <button id="btn-ff" class="btn">快进挖到满</button>
+      </div>
+      <div class="log-panel">
+        <div class="log-title">事件</div>
+        <div id="log" class="log"></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card">
+        <h3>背包原矿 <span id="bag-value" class="muted"></span></h3>
+        <div id="bag-list" class="list"><div class="empty">背包是空的</div></div>
+      </section>
+
+      <section class="card">
+        <h3>成品 · 成色 <span id="goods-value" class="muted"></span></h3>
+        <div id="goods-list" class="list"><div class="empty">还没打磨过</div></div>
+      </section>
+
+      <section class="card">
+        <h3>成色价目表</h3>
+        <div id="quality-table" class="quality-table"></div>
+        <div class="hint-text">成品单价 = 原矿单价 × 成色百分比。成色越好越贵。</div>
+      </section>
+
+      <section class="card">
+        <h3>商店 · 工具</h3>
+        <div id="tool-shop" class="shop"></div>
+      </section>
+
+      <section class="card">
+        <h3>商店 · 机器 / 雇工</h3>
+        <div id="worker-shop" class="shop"></div>
+        <div class="hint-text">机器/雇工会在你雇它的位置自动挖相邻格；雇工每步扣工资。</div>
+      </section>
+    </aside>
+  </main>
+
+  <div id="toast-root" class="toast-root"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>

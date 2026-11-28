@@ -44,10 +44,22 @@ public enum ActionKind
 {
     Move,        // 上/下/左/右移动一格
     Dig,         // 挖当前位置相邻的格（方向参数）
-    Sell,        // 在地面卖掉背包里的矿
+    Sell,        // 在地面卖掉背包里的矿 + 已打磨成品
     BuyTool,     // 买工具
     HireWorker,  // 买机器/雇人
     GoSurface,   // 回到地面（瞬移到地表井口）
+    Polish,      // 在地面把背包原矿打磨成带成色的成品（追加，不改动前面数值）
+}
+
+// ===== 成品成色（品质档位：数值越高越贵）=====
+// 打磨后每单位原矿产出一件成品，成色由 PolishConfig 的权重随机决定（走 seed，确定性）。
+public enum QualityGrade
+{
+    Common,      // 普通
+    Good,        // 良好
+    Fine,        // 精良
+    Excellent,   // 卓越
+    Flawless,    // 完美
 }
 
 // ===== 方向 =====
@@ -82,4 +94,13 @@ public enum AdvanceResultCode
     NotEnoughMoney, // 买工具/雇人钱不够
     InvalidTarget,  // 目标非法
     BackpackFull,
+}
+
+// ===== 打磨结果码 =====
+public enum PolishResultCode
+{
+    Ok,
+    NotAtSurface,   // 不在表面，不能打磨
+    NothingToPolish,// 背包没有原矿
+    OutOfStamina,   // 体力不足以打磨任何单位
 }

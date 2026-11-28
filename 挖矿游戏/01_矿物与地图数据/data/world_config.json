@@ -1,0 +1,78 @@
+{
+  "StartingMoney": 45,
+  "BackpackCapacity": 24,
+  "MaxStamina": 40,
+  "SurfaceStaminaRegen": 2,
+  "Prices": {
+    "0": 1,
+    "1": 7,
+    "2": 16,
+    "3": 30,
+    "4": 62,
+    "5": 135,
+    "6": 330
+  },
+  "ToolShop": [
+    {
+      "Kind": 0,
+      "Name": "徒手",
+      "Power": 1,
+      "Price": 0
+    },
+    {
+      "Kind": 1,
+      "Name": "镐",
+      "Power": 3,
+      "Price": 30
+    },
+    {
+      "Kind": 2,
+      "Name": "电钻",
+      "Power": 6,
+      "Price": 180
+    },
+    {
+      "Kind": 3,
+      "Name": "挖掘机",
+      "Power": 8,
+      "Price": 900
+    }
+  ],
+  "WorkerShop": [
+    {
+      "Kind": 0,
+      "Name": "机器人",
+      "Power": 3,
+      "Interval": 3,
+      "Wage": 0,
+      "Price": 220
+    },
+    {
+      "Kind": 1,
+      "Name": "雇工",
+      "Power": 6,
+      "Interval": 2,
+      "Wage": 2,
+      "Price": 150
+    }
+  ],
+  "PolishSettings": {
+    "GradeWeights": [
+      60,
+      26,
+      10,
+      3,
+      1
+    ],
+    "GradePricePercent": [
+      100,
+      140,
+      190,
+      260,
+      360
+    ],
+    "GradeBonusPerTier": 2,
+    "UnitsPerAction": 5,
+    "StaminaPerUnit": 1
+  }
+}

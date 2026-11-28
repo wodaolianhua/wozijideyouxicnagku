@@ -20,9 +20,9 @@
 
 | 文件 | 内容 |
 |---|---|
-| `Enums.cs` | MineralType / TileType / ToolKind / WorkerKind / ActionKind / Direction 及各结果码枚举 |
-| `Models.cs` | Cell / MineGrid / Backpack / BackpackItem / GameState / DigResult / SellResult / DigOutcome / AdvanceResult 等数据结构 |
-| `Interfaces.cs` | IMiningSimulator / IDigResolver / IMovementResolver / IBackpackPolicy / ISellResolver / IAutomationResolver 接口 + 动作语义说明 |
+| `Enums.cs` | MineralType / TileType / ToolKind / WorkerKind / ActionKind / Direction / QualityGrade / PolishResultCode 及各结果码枚举 |
+| `Models.cs` | Cell / MineGrid / Backpack / BackpackItem / GameState / DigResult / SellResult / PolishConfig / PolishedItem / PolishedSaleLine / WorldConfig / DigOutcome / AdvanceResult 等数据结构 |
+| `Interfaces.cs` | IMiningSimulator / IDigResolver / IMovementResolver / IBackpackPolicy / ISellResolver / IAutomationResolver / IPolishResolver 接口 + 动作语义说明 |
 | `Contracts.ts` | 上述类型的 TypeScript 版（前端用，字段/枚举数值与 .cs 一一对应） |
 
 ## 前端特别注意（03 包）

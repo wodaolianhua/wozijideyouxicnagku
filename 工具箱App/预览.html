@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>手机模拟器 · 我的工具箱</title>
+<style>
+:root{
+  --bg:#0c0e13;--panel:#161a22;--panel2:#1d222c;--line:#2a3040;
+  --tx:#e8eaf0;--tx2:#9aa3b5;--tx3:#6a7385;--acc:#5b8cff;--ok:#3ddc97;--warn:#ffb454;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--tx);min-height:100vh;
+  font:14px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  display:flex;flex-direction:column;
+}
+header{
+  padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .sub{font-size:12.5px;color:var(--tx3)}
+.bar{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+select,button{
+  background:var(--panel2);border:1px solid var(--line);color:var(--tx);
+  border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer;font-size:13px;
+}
+button:hover{border-color:var(--acc)}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.stage{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 16px;gap:28px;flex-wrap:wrap}
+
+/* 手机外壳 */
+.phone{
+  width:390px;height:844px;flex:0 0 auto;position:relative;
+  background:#000;border-radius:44px;padding:12px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6), 0 0 0 2px #2a2f3a;
+}
+.phone::before{
+  content:'';position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  width:118px;height:26px;background:#000;border-radius:14px;z-index:5;
+}
+.screen{
+  width:100%;height:100%;border-radius:33px;overflow:hidden;
+  background:#111318;position:relative;
+}
+.screen iframe{width:100%;height:100%;border:0;display:block}
+
+/* 侧边说明 */
+.side{width:300px;flex:0 0 auto;align-self:flex-start}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:14px;margin-bottom:12px;
+}
+.card h2{font-size:14px;margin:0 0 9px;font-weight:600}
+.card p{margin:0 0 8px;font-size:13px;color:var(--tx2)}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.kv:last-child{border-bottom:0}
+.kv b{font-weight:500;color:var(--tx)}
+.note{font-size:12px;color:var(--tx3);line-height:1.6}
+.tip{border-left:2px solid var(--acc);padding-left:10px;color:var(--tx2);font-size:12.5px;margin:8px 0}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--tx3)}
+.tag.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}
+@media(max-width:760px){
+  .phone{width:100%;max-width:390px;height:76vh;height:76dvh}
+  .side{width:100%}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>手机模拟器 · 我的工具箱</h1>
+    <div class="sub">这就是手机上看到的样子。左边框里那个就是真的 App，直接点着玩。</div>
+  </div>
+  <div class="bar">
+    <select id="device">
+      <option value="390x844">标准手机 390×844</option>
+      <option value="360x800">小屏 360×800</option>
+      <option value="412x915">大屏 412×915</option>
+      <option value="360x640">老款小屏 360×640</option>
+    </select>
+    <button id="btnReload">重新加载</button>
+    <button id="btnDark" class="on">深色</button>
+    <button id="btnLight">浅色</button>
+  </div>
+</header>
+
+<div class="stage">
+  <div class="phone" id="phone">
+    <div class="screen">
+      <iframe id="frame" src="mobile/index.html"></iframe>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h2>现在能确认什么</h2>
+      <p class="tip">框里那个是<b>真的 App</b>，不是截图。你点的每一下，行为跟手机上完全一样——因为它就是手机上跑的那份代码。</p>
+      <p>你可以：</p>
+      <p>· 一个个点开 13 个工具，看排版挤不挤<br>
+         · 在记账本里记一笔，看数字和图表对不对<br>
+         · 密码本设个主密码，试解锁<br>
+         · 像素画板画两笔<br>
+         · 番茄钟点开始，看它走不走</p>
+      <p class="note">数据存在浏览器本地，跟手机上是两套独立的。想清掉重来：F12 → Application → Storage → Clear site data。</p>
+    </div>
+
+    <div class="card">
+      <h2>状态</h2>
+      <div class="kv"><span>运行环境</span><b id="stEnv">本地文件</b></div>
+      <div class="kv"><span>工具数量</span><b id="stTools">—</b></div>
+      <div class="kv"><span>当前工具</span><b id="stPage">首页</b></div>
+      <div class="kv"><span>数据存储</span><b>本机 IndexedDB</b></div>
+      <div class="kv"><span>联网需求</span><b class="tag ok">不需要</b></div>
+    </div>
+
+    <div class="card">
+      <h2>跟真手机的区别</h2>
+      <p class="note">就三处：<br>
+      ① 触屏在电脑上等于鼠标 —— 像素画板那种要拖的地方能用，但手感不一样<br>
+      ② 震动（打卡、抽卡的抖动）电脑上没有<br>
+      ③ 状态栏、信号、电量这些系统 UI 不归 App 管<br><br>
+      <b>布局、字号、点击逻辑、数据存储全都一样。</b>所以这里看顺眼了，手机上就是那个样子。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const frame = document.getElementById('frame');
+const phone = document.getElementById('phone');
+
+function applySize() {
+  const [w, h] = document.getElementById('device').value.split('x');
+  phone.style.width = w + 'px';
+  phone.style.height = h + 'px';
+}
+applySize();
+document.getElementById('device').onchange = applySize;
+
+document.getElementById('btnReload').onclick = () => {
+  const src = frame.src;
+  frame.src = 'about:blank';
+  setTimeout(() => { frame.src = src; }, 50);
+};
+
+document.getElementById('btnDark').onclick = () => setTheme('dark');
+document.getElementById('btnLight').onclick = () => setTheme('light');
+function setTheme(t) {
+  /* 通过 postMessage 通知 iframe（file:// 下跨 iframe 访问会被同源策略挡住） */
+  try { frame.contentWindow.postMessage({ type: 'toolbox-command', action: 'theme', theme: t }, '*'); } catch (e) {}
+  document.getElementById('btnDark').className = t === 'dark' ? 'on' : '';
+  document.getElementById('btnLight').className = t === 'light' ? 'on' : '';
+}
+
+/* 接收 iframe 报告的状态 */
+window.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d || d.type !== 'toolbox-state') return;
+  if (d.toolCount) document.getElementById('stTools').textContent = d.toolCount + ' 个';
+  if (d.title) document.getElementById('stPage').textContent = d.title;
+  document.getElementById('stEnv').textContent =
+    location.protocol === 'file:' ? '本地文件（离线）' : '本地服务器';
+  if (d.theme) {
+    document.getElementById('btnDark').className = d.theme === 'dark' ? 'on' : '';
+    document.getElementById('btnLight').className = d.theme === 'light' ? 'on' : '';
+  }
+});
+
+frame.addEventListener('load', () => {
+  document.getElementById('stEnv').textContent =
+    location.protocol === 'file:' ? '本地文件（离线）' : '本地服务器';
+});
+</script>
+</body>
+</html>

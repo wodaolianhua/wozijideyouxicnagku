@@ -50,13 +50,22 @@ public interface IAutomationResolver
     List<DigResult> Produce(GameState state, int seed);
 }
 
+public interface IPolishResolver
+{
+    // 打磨：把背包原矿按 units 单位打磨成带成色的成品。纯函数，不改 state（由 simulator 应用结果）。
+    // 必须在地表（MinerY <= SurfaceY）；体力不足时按负担得起的单位数减少，0 单位返回对应结果码。
+    // 成色由 PolishSettings.GradeWeights + 矿物深度加成按 seed 确定性抽取——同输入同输出。
+    PolishResult Polish(GameState state, int units, int seed);
+}
+
 // ===== 动作语义（执行 AI 必读，避免做岔）=====
 // GameAction 每步最多一条玩家主动作，simulator 按 Kind 分派：
 //   Move       —— 朝 Direction 移动角色一格；目标须是 Air，否则 MoveResultCode.Blocked。
 //   Dig        —— 挖角色朝 Direction 相邻的格；调 IDigResolver，成功则矿进背包、格子 OreAmount-1。
-//   Sell       —— 必须角色在地表（MinerY <= SurfaceY），调 ISellResolver，收入进 Money、背包清空。
+//   Sell       —— 必须角色在地表（MinerY <= SurfaceY），调 ISellResolver，收入进 Money、背包/成品清空。
 //   BuyTool    —— 从 ToolShop 找 Tool，钱够则扣钱、加入 OwnedTools 并装备。
 //   HireWorker —— 从 WorkerShop 找 Worker，钱够则扣钱、加入 Workers。
 //   GoSurface  —— 角色瞬移到井口 (ShaftX, SurfaceY)，恢复体力（地面休息）。
+//   Polish     —— 必须在地表；调 IPolishResolver 把背包原矿打磨成带成色的成品（PolishSettings.UnitsPerAction）。
 // 玩家不主动作时传空 actions：本步只结算自动单位产出 + 体力自然消耗。
-// 状态字段都能存中间进度（位置/体力/钱/背包/工人），所以分步推进不需要重复下令。
+// 状态字段都能存中间进度（位置/体力/钱/背包/成品/工人），所以分步推进不需要重复下令。

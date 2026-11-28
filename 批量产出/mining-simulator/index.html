@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⛏️ 比特币挖矿模拟器 Pro版 v3.2.1</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="charts.js"></script>
+</head>
+<body>
+    <!-- 顶部栏 -->
+    <header class="main-header">
+        <div class="header-left">
+            <span class="logo">⛏️</span>
+            <h1>比特币挖矿模拟器 <span class="version">Pro版 v3.2.1</span></h1>
+        </div>
+        <div class="header-right">
+            <div class="status-badge connected">● 已连接</div>
+            <div class="uptime">运行时间: <span id="uptime">00:00:00</span></div>
+            <button class="btn btn-small" onclick="togglePause()">⏸ 暂停</button>
+            <button class="btn btn-small btn-danger" onclick="resetMining()">⚠ 重置</button>
+        </div>
+    </header>
+
+    <!-- 主体内容 -->
+    <div class="main-container">
+        
+        <!-- 左侧面板 - 控制面板 -->
+        <aside class="left-panel">
+            <!-- 挖矿终端 -->
+            <div class="panel console-panel">
+                <div class="panel-header">
+                    <span>📟 挖矿控制台</span>
+                    <span class="badge live">实时</span>
+                </div>
+                <div class="terminal" id="terminal">
+                    <div class="terminal-line system">欢迎使用 BTC 挖矿模拟器 Pro版 v3.2.1</div>
+                    <div class="terminal-line system">版权所有 (C) 2024 CryptoSim Inc.</div>
+                    <div class="terminal-line">&nbsp;</div>
+                    <div class="terminal-line">正在初始化挖矿设备... [完成]</div>
+                    <div class="terminal-line">正在连接矿池 stratum+tcp://us.pool.btc.com:3333... [已连接]</div>
+                    <div class="terminal-line">Stratum 协议版本: 1.1</div>
+                    <div class="terminal-line">身份验证: 成功</div>
+                    <div class="terminal-line">&nbsp;</div>
+                </div>
+            </div>
+
+            <!-- 硬件信息 -->
+            <div class="panel">
+                <div class="panel-header">🖥️ 硬件配置</div>
+                <div class="hardware-grid">
+                    <div class="hw-card">
+                        <div class="hw-label">显卡</div>
+                        <div class="hw-value" id="gpu-name">NVIDIA RTX 4090</div>
+                        <select class="hw-select" id="gpu-select" onchange="changeGPU(this.value)">
+                            <option value="rtx4090">RTX 4090 (216 MH/s)</option>
+                            <option value="rtx4080">RTX 4080 (165 MH/s)</option>
+                            <option value="rtx4070ti">RTX 4070 Ti (120 MH/s)</option>
+                            <option value="rtx3090">RTX 3090 (108 MH/s)</option>
+                            <option value="rtx3080">RTX 3080 (87 MH/s)</option>
+                            <option value="rtx3070">RTX 3070 (62 MH/s)</option>
+                            <option value="rx7900xtx">AMD RX 7900 XTX (160 MH/s)</option>
+                            <option value="rx6800">AMD RX 6800 (55 MH/s)</option>
+                            <option value="antminer_s19">AntMiner S19 Pro (110 TH/s SHA-256)</option>
+                            <option value="antminer_s21">AntMiner S21 (200 TH/s SHA-256)</option>
+                        </select>
+                    </div>
+                    <div class="hw-card">
+                        <div class="hw-label">算法</div>
+                        <div class="hw-value" id="algo-name">Ethash</div>
+                        <select class="hw-select" id="algo-select" onchange="changeAlgorithm(this.value)">
+                            <option value="ethash">Ethash (ETH)</option>
+                            <option value="kawpow">KawPow (RVN)</option>
+                            <option value="sha256">SHA-256 (BTC)</option>
+                            <option value="scrypt">Scrypt (LTC)</option>
+                            <option value="randomx">RandomX (XMR)</option>
+                            <option value="autolykos">Autolykos (ERG)</option>
+                        </select>
+                    </div>
+                    <div class="hw-card">
+                        <div class="hw-label">矿池</div>
+                        <div class="hw-value" id="pool-name">币安矿池</div>
+                        <select class="hw-select" id="pool-select" onchange="changePool(this.value)">
+                            <option value="binance">币安矿池 (2%)</option>
+                            <option value="f2pool">鱼池 F2Pool (2.5%)</option>
+                            <option value="antpool">蚂蚁矿池 AntPool (2%)</option>
+                            <option value="marathon">马拉松矿池 Marathon (1.5%)</option>
+                            <option value="viabtc">ViaBTC (1%)</option>
+                        </select>
+                    </div>
+                    <div class="hw-card">
+                        <div class="hw-label">风扇转速</div>
+                        <input type="range" min="20" max="100" value="65" class="slider" id="fan-slider" oninput="updateFanSpeed(this.value)">
+                        <span id="fan-value">65%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 超频控制 -->
+            <div class="panel">
+                <div class="panel-header">🔧 超频设置</div>
+                <div class="oc-controls">
+                    <div class="oc-item">
+                        <label>核心频率 (+MHz)</label>
+                        <input type="range" min="-100" max="300" value="0" class="slider" id="core-slider" oninput="updateOC('core', this.value)">
+                        <span id="core-value">+0 MHz</span>
+                    </div>
+                    <div class="oc-item">
+                        <label>显存频率 (+MHz)</label>
+                        <input type="range" min="-200" max="1500" value="0" class="slider" id="mem-slider" oninput="updateOC('mem', this.value)">
+                        <span id="mem-value">+0 MHz</span>
+                    </div>
+                    <div class="oc-item">
+                        <label>功耗限制 (%)</label>
+                        <input type="range" min="40" max="150" value="100" class="slider" id="power-slider" oninput="updateOC('power', this.value)">
+                        <span id="power-value">100%</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中间面板 - 统计数据 -->
+        <main class="center-panel">
+            
+            <!-- 核心指标 -->
+            <div class="metrics-row">
+                <div class="metric-card primary">
+                    <div class="metric-icon">⚡</div>
+                    <div class="metric-info">
+                        <div class="metric-label">算力</div>
+                        <div class="metric-value" id="hashrate">0.00 MH/s</div>
+                        <div class="metric-sub" id="hashrate-trend">▲ +0.00 MH/s 已启动</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">💰</div>
+                    <div class="metric-info">
+                        <div class="metric-label">钱包余额</div>
+                        <div class="metric-value" id="wallet-balance">0.00000000 BTC</div>
+                        <div class="metric-sub" id="wallet-usd">$0.00 美元</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">🎯</div>
+                    <div class="metric-info">
+                        <div class="metric-label">有效份额</div>
+                        <div class="metric-value" id="shares-accepted">0</div>
+                        <div class="metric-sub" id="share-rate">0.00 份/秒</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">❌</div>
+                    <div class="metric-info">
+                        <div class="metric-label">失效份额</div>
+                        <div class="metric-value" id="shares-rejected">0</div>
+                        <div class="metric-sub" id="reject-rate">0.0% 淘汰率</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图表区域 -->
+            <div class="chart-container">
+                <div class="chart-tabs">
+                    <button class="tab active" onclick="switchChart('hashrate')">算力曲线</button>
+                    <button class="tab" onclick="switchChart('price')">BTC价格</button>
+                    <button class="tab" onclick="switchChart('earnings')">收益曲线</button>
+                    <button class="tab" onclick="switchChart('temp')">温度曲线</button>
+                </div>
+                <canvas id="main-chart" width="800" height="250"></canvas>
+            </div>
+
+            <!-- 温度与功耗监控 -->
+            <div class="monitor-grid">
+                <div class="panel monitor-card">
+                    <div class="panel-header">🌡️ 温度监控</div>
+                    <div class="temp-bars">
+                        <div class="temp-bar">
+                            <span>GPU 核心</span>
+                            <div class="bar-bg">
+                                <div class="bar-fill temp-low" id="gpu-core-bar" style="width: 45%"></div>
+                            </div>
+                            <span class="temp-value" id="gpu-core">45°C</span>
+                        </div>
+                        <div class="temp-bar">
+                            <span>GPU 显存</span>
+                            <div class="bar-bg">
+                                <div class="bar-fill temp-low" id="gpu-mem-bar" style="width: 35%"></div>
+                            </div>
+                            <span class="temp-value" id="gpu-mem">35°C</span>
+                        </div>
+                        <div class="temp-bar">
+                            <span>VRAM</span>
+                            <div class="bar-bg">
+                                <div class="bar-fill temp-low" id="vram-bar" style="width: 38%"></div>
+                            </div>
+                            <span class="temp-value" id="vram-temp">38°C</span>
+                        </div>
+                        <div class="temp-bar">
+                            <span>PCB板</span>
+                            <div class="bar-bg">
+                                <div class="bar-fill temp-low" id="pcb-bar" style="width: 30%"></div>
+                            </div>
+                            <span class="temp-value" id="pcb-temp">30°C</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel monitor-card">
+                    <div class="panel-header">⚡ 功耗与效率</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">GPU 功耗</span>
+                            <span class="stat-value" id="gpu-power">0 W</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">整机功耗</span>
+                            <span class="stat-value" id="system-power">0 W</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">每小时电费</span>
+                            <span class="stat-value" id="cost-per-hour">$0.00</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">每日电费</span>
+                            <span class="stat-value" id="cost-per-day">$0.00</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">效率</span>
+                            <span class="stat-value" id="efficiency">0 J/MH</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">电价设置</span>
+                            <input type="number" id="electricity-rate" value="0.12" step="0.01" min="0" max="1" class="stat-input" onchange="updateCosts()">
+                            <span class="stat-unit">$/kWh（每度电）</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 网络数据 -->
+            <div class="network-stats">
+                <div class="panel">
+                    <div class="panel-header">🌐 网络数据</div>
+                    <div class="network-grid">
+                        <div class="net-stat">
+                            <span class="label">全网算力</span>
+                            <span class="value" id="network-hr">485.2 EH/s</span>
+                        </div>
+                        <div class="net-stat">
+                            <span class="label">挖矿难度</span>
+                            <span class="value" id="difficulty">83.23 T</span>
+                        </div>
+                        <div class="net-stat">
+                            <span class="label">区块高度</span>
+                            <span class="value" id="block-height">#840,127</span>
+                        </div>
+                        <div class="net-stat">
+                            <span class="label">下次减半</span>
+                            <span class="value" id="halving">~105 天</span>
+                        </div>
+                        <div class="net-stat">
+                            <span class="label">当前奖励</span>
+                            <span class="value" id="block-reward">3.125 BTC</span>
+                        </div>
+                        <div class="net-stat">
+                            <span class="label">BTC 价格</span>
+                            <span class="value" id="btc-price">$104,250</span>
+                        </div>
+                        <div class="net-stat">
+                            <span class="label">预计挖到区块数</span>
+                            <span class="value" id="estimated-blocks">0.00000012</span>
+                        </div>
+                        <div class="net-stat">
+                            <span class="label">平均出块时间</span>
+                            <span class="value" id="avg-block-time">~9.8 分钟</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 右侧面板 - 收益与日志 -->
+        <aside class="right-panel">
+            
+            <!-- 收益汇总 -->
+            <div class="panel earnings-panel">
+                <div class="panel-header">💰 收益统计</div>
+                <div class="earnings-grid">
+                    <div class="earning-item">
+                        <span class="earning-label">今日</span>
+                        <div class="earning-value btc" id="earn-today">0.00000000 BTC</div>
+                        <div class="earning-value usd" id="earn-today-usd">$0.00</div>
+                    </div>
+                    <div class="earning-item">
+                        <span class="earning-label">本周</span>
+                        <div class="earning-value btc" id="earn-week">0.00000000 BTC</div>
+                        <div class="earning-value usd" id="earn-week-usd">$0.00</div>
+                    </div>
+                    <div class="earning-item">
+                        <span class="earning-label">本月</span>
+                        <div class="earning-value btc" id="earn-month">0.00000000 BTC</div>
+                        <div class="earning-value usd" id="earn-month-usd">$0.00</div>
+                    </div>
+                    <div class="earning-item">
+                        <span class="earning-label">累计</span>
+                        <div class="earning-value btc" id="earn-total">0.00000000 BTC</div>
+                        <div class="earning-value usd" id="earn-total-usd">$0.00</div>
+                    </div>
+                </div>
+                <div class="profit-loss">
+                    <span>净利润：</span>
+                    <span class="profit-value" id="net-profit">$0.00</span>
+                </div>
+            </div>
+
+            <!-- 事件日志 -->
+            <div class="panel log-panel">
+                <div class="panel-header">
+                    <span>📋 事件日志</span>
+                    <button class="btn btn-xs" onclick="clearLog()">清空</button>
+                </div>
+                <div class="log-container" id="event-log">
+                    <div class="log-entry info">[SYS] 系统已初始化</div>
+                    <div class="log-entry info">[NET] 矿池连接已建立</div>
+                </div>
+            </div>
+
+            <!-- 最近挖出的区块 -->
+            <div class="panel blocks-panel">
+                <div class="panel-header">🧱 最近挖出的区块</div>
+                <div class="blocks-list" id="blocks-list">
+                    <div class="block-item empty">
+                        <span>暂无区块记录...</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="mining-core.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

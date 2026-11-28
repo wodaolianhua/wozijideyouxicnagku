@@ -7,11 +7,13 @@ export enum MineralType { Soil, Coal, Iron, Copper, Silver, Gold, RareCrystal }
 export enum TileType { Air, Dirt, Stone, Bedrock, Ore }
 export enum ToolKind { BareHands, Pickaxe, Drill, Excavator }
 export enum WorkerKind { Robot, HiredMiner }
-export enum ActionKind { Move, Dig, Sell, BuyTool, HireWorker, GoSurface }
+export enum ActionKind { Move, Dig, Sell, BuyTool, HireWorker, GoSurface, Polish }
 export enum Direction { Up, Down, Left, Right }
 export enum DigResultCode { Ok, Empty, NotDiggable, ToolTooWeak, BackpackFull, OutOfBounds }
 export enum MoveResultCode { Ok, Blocked, OutOfBounds }
 export enum AdvanceResultCode { Ok, NotEnoughMoney, InvalidTarget, BackpackFull }
+export enum QualityGrade { Common, Good, Fine, Excellent, Flawless }
+export enum PolishResultCode { Ok, NotAtSurface, NothingToPolish, OutOfStamina }
 
 // ===== 数据结构（字段名与 .cs 属性名严格一致：PascalCase）=====
 // ⚠️ 字段名必须保持 PascalCase（大写开头），与 C# 属性名一模一样。
@@ -42,16 +44,36 @@ export interface DigResult {
   Code: DigResultCode; Mineral: MineralType; Amount: number;
   X: number; Y: number; StaminaCost: number;
 }
-export interface SellResult { Income: number; Sold: BackpackItem[]; }
+export interface PolishedItem { Mineral: MineralType; Grade: QualityGrade; Amount: number; }
+export interface PolishConfig {
+  GradeWeights: number[]; GradePricePercent: number[]; GradeBonusPerTier: number;
+  UnitsPerAction: number; StaminaPerUnit: number;
+}
+export interface PolishResult {
+  Code: PolishResultCode; Produced: PolishedItem[];
+  ConsumedUnits: number; StaminaCost: number;
+}
+export interface PolishedSaleLine {
+  Mineral: MineralType; Grade: QualityGrade; Amount: number;
+  UnitPrice: number; Subtotal: number;
+}
+export interface SellResult { Income: number; Sold: BackpackItem[]; SoldProducts: PolishedSaleLine[]; }
 export interface GameState {
   Time: number; Grid: MineGrid; MinerX: number; MinerY: number;
   Stamina: number; MaxStamina: number; Money: number;
+  SurfaceStaminaRegen: number;
   CurrentTool: ToolKind; OwnedTools: ToolKind[];
   Backpack: Backpack; Workers: Worker[];
   ToolShop: ToolSpec[]; WorkerShop: WorkerSpec[];
   Prices: { [mineralType: number]: number };
+  PolishedGoods: PolishedItem[]; PolishSettings: PolishConfig;
 }
-export interface DigOutcome { Digs: DigResult[]; Sale: SellResult; Message: string; }
+export interface WorldConfig {
+  StartingMoney: number; BackpackCapacity: number; MaxStamina: number;
+  SurfaceStaminaRegen: number; Prices: { [mineralType: number]: number };
+  ToolShop: ToolSpec[]; WorkerShop: WorkerSpec[]; PolishSettings: PolishConfig;
+}
+export interface DigOutcome { Digs: DigResult[]; Sale: SellResult; Polish: PolishResult; Message: string; }
 export interface AdvanceResult {
   State: GameState; Outcomes: DigOutcome[]; Code: AdvanceResultCode;
 }
